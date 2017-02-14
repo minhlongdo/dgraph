@@ -90,10 +90,10 @@ const popover = (
   </Popover>
 );
 
-    since(this.props.lastRun)
+    let timeDiff = since(this.props.lastRun)
     return (
       <tr className="query" style={{padding: '5px'}}>
-         <td style={{padding: '0px 5px 0px 10px', width: '20%'}}>{since(this.props.lastRun)}</td>
+         <td style={{padding: '0px 5px 0px 10px', width: '20%'}}>{timeDiff}</td>
          <td style={{padding: '0px 10px 0px 5px'}}>
          <OverlayTrigger delayShow={1500} delayHide={0}
         overlay={popover} placement="bottom">
