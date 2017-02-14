@@ -273,7 +273,7 @@ function renderNetwork(nodes: Array <Node>, edges: Array <Edge>) {
       hover: true,
       keyboard: {
         enabled: true,
-        bindToWindow: false
+        bindToWindow: false,
       },
       tooltipDelay: 1000000
     },
@@ -404,12 +404,17 @@ function timeout(ms, promise) {
   })
 }
 
+type QueryTs = {|
+  text: string,
+  lastRun: number
+|}
+
 type State = {
   selectedNode: boolean,
   partial: boolean,
-  queryIndex: number,
+  // queryIndex: number,
   query: string,
-  queries: Array <string>,
+  queries: Array <QueryTs>,
   lastQuery: string,
   response: string,
   latency: string,
@@ -435,7 +440,7 @@ class App extends React.Component {
     this.state = {
       selectedNode: false,
       partial: false,
-      queryIndex: response[0],
+      // queryIndex: response[0],
       query: response[1],
       // We store the queries run in state, so that they can be displayed
       // to the user.
@@ -494,59 +499,74 @@ class App extends React.Component {
   }
 
   storeQuery = (query: string) => {
-    let queries: Array <string> = JSON.parse(localStorage.getItem("queries") || '[]');
-    queries.unshift(query);
+    let queries: Array <QueryTs> = JSON.parse(localStorage.getItem("queries") || '[]');
+
+    query = query.trim();
+    queries.forEach(function (q, idx) {
+      if (q.text ===  query) {
+        queries.splice(idx,1)
+      }
+    })
+
+    let qu: QueryTs = {text: query, lastRun: Date.now()}
+    queries.unshift(qu);
 
     // (queries.length > 20) && (queries = queries.splice(0, 20))
 
     this.setState({
-      queryIndex: queries.length - 1,
+      // queryIndex: queries.length - 1,
       queries: queries
     })
     localStorage.setItem("queries", JSON.stringify(queries));
   }
 
   lastQuery = () => {
-    let queries: Array <string> = JSON.parse(localStorage.getItem("queries") || '[]')
+    let queries: Array <QueryTs> = JSON.parse(localStorage.getItem("queries") || '[]')
     if (queries.length === 0) {
+      return [-1, "", []]
+    }
+
+    // We changed the API to hold array of objects instead of strings, so lets clear their localStorage.
+    if(queries.length !== 0 && typeof(queries[0]) === "string") {
+      localStorage.setItem("queries", '[]');
       return [-1, "", []]
     }
     // This means queries has atleast one element.
 
-    return [0, queries[0], queries]
+    return [0, queries[0].text, queries]
   }
 
-  nextQuery = () => {
-    let queries: Array <string> = JSON.parse(localStorage.getItem("queries") || '[]')
-    if (queries.length === 0) {
-      return
-    }
+  // nextQuery = () => {
+  //   let queries: Array <string> = JSON.parse(localStorage.getItem("queries") || '[]')
+  //   if (queries.length === 0) {
+  //     return
+  //   }
 
-    let idx: number = this.state.queryIndex;
-    if (idx === -1 || idx - 1 < 0) {
-      return
-    }
-    this.setState({
-      query: queries[idx - 1],
-      queryIndex: idx - 1
-    });
-  }
+  //   let idx: number = this.state.queryIndex;
+  //   if (idx === -1 || idx - 1 < 0) {
+  //     return
+  //   }
+  //   this.setState({
+  //     query: queries[idx - 1],
+  //     queryIndex: idx - 1
+  //   });
+  // }
 
-  previousQuery = () => {
-    var queries: Array <string> = JSON.parse(localStorage.getItem("queries") || '[]')
-    if (queries === '[]') {
-      return
-    }
+  // previousQuery = () => {
+  //   var queries: Array <string> = JSON.parse(localStorage.getItem("queries") || '[]')
+  //   if (queries === '[]') {
+  //     return
+  //   }
 
-    var idx = this.state.queryIndex;
-    if (idx === -1 || (idx + 1) === queries.length) {
-      return
-    }
-    this.setState({
-      queryIndex: idx + 1,
-      query: queries[idx + 1]
-    })
-  }
+  //   var idx = this.state.queryIndex;
+  //   if (idx === -1 || (idx + 1) === queries.length) {
+  //     return
+  //   }
+  //   this.setState({
+  //     queryIndex: idx + 1,
+  //     query: queries[idx + 1]
+  //   })
+  // }
 
   runQuery = (e: Event) => {
     e.preventDefault();
@@ -699,6 +719,7 @@ class App extends React.Component {
                         this.runQuery(new Event(''));
                       }.bind(this)
                     },
+                    {/*
                     {
                       name: 'previousQuery',
                       bindKey: {
@@ -718,20 +739,20 @@ class App extends React.Component {
                       exec: function(editor) {
                         this.nextQuery();
                       }.bind(this)
-                    }]}
+                    }
+                  */}
+                    ]}
                   />
                 </div>
-                <div className="App-tip">Tips:<br/>
-                  Ctrl + Enter to execute the query.<br/>
-                  Ctrl + Up/Down arrow key to see previously run queries.
-                </div>
-                <div style={{marginTop: '20px', width: '100%', marginBottom: '100px'}}>
+                <div style={{marginTop: '10px', width: '100%', marginBottom: '100px'}}>
                   <span style={{marginLeft: '10px'}}><b>Previous Queries</b></span>
-                  <div style={{height: '500px', width: '100%',overflowY: 'scroll', border: '1px solid black', margin: '10px', padding: '10px'}}>
+                  <table style={{ width: '100%', border: '1px solid black', margin: '10px 0px', padding: '0px 5px 5px 5px'}}>
+                    <tbody style={{height: '500px',overflowY: 'scroll', display: 'block'}}>
                     {this.state.queries.map(function (query, i) {
-                      return <Query text={query} update={this.updateQuery} key={i} unique={i}></Query>;
+                      return <Query text={query.text} update={this.updateQuery} key={i} lastRun={query.lastRun} unique={i}></Query>;
                     },this)}
-                  </div>
+                    </tbody>
+                  </table>
                 </div>
               </div>
             <div className="col-sm-7">
@@ -760,7 +781,6 @@ class App extends React.Component {
             </div>
             <div className="row">
               <div className="col-sm-12">
-
             </div>
             </div>
           </div> </div>
