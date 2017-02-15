@@ -3,11 +3,6 @@
 import React from 'react';
 
 import vis from 'vis';
-import * as ace from 'brace';
-import AceEditor from 'react-ace';
-import 'brace/mode/logiql';
-import 'brace/theme/github';
-import 'brace/ext/language_tools';
 import screenfull from 'screenfull';
 import classNames from 'classnames';
 
@@ -463,6 +458,7 @@ class App extends React.Component {
 
   updateQuery = (e: Event) => {
     e.preventDefault();
+    this.editor.setValue(e.target.dataset.query);
     if(e.target instanceof HTMLElement){
         this.setState({
           query: e.target.dataset.query,
@@ -476,15 +472,15 @@ class App extends React.Component {
         });
     }
     window.scrollTo(0, 0);
-    this.refs.code.editor.focus();
-    this.refs.code.editor.navigateFileEnd();
+    // this.refs.code.editor.focus();
+    // this.refs.code.editor.navigateFileEnd();
 
     network && network.destroy();
   }
 
-  // Handler which listens to changes on AceEditor.
-  queryChange = (newValue: string) => {
-    this.setState({ query: newValue });
+  // Handler which listens to changes on Codemirror.
+  queryChange = () => {
+    this.setState({ query: this.editor.getValue() });
   }
 
   resetState = () => {
@@ -538,38 +534,6 @@ class App extends React.Component {
 
     return [0, queries[0].text, queries]
   }
-
-  // nextQuery = () => {
-  //   let queries: Array <string> = JSON.parse(localStorage.getItem("queries") || '[]')
-  //   if (queries.length === 0) {
-  //     return
-  //   }
-
-  //   let idx: number = this.state.queryIndex;
-  //   if (idx === -1 || idx - 1 < 0) {
-  //     return
-  //   }
-  //   this.setState({
-  //     query: queries[idx - 1],
-  //     queryIndex: idx - 1
-  //   });
-  // }
-
-  // previousQuery = () => {
-  //   var queries: Array <string> = JSON.parse(localStorage.getItem("queries") || '[]')
-  //   if (queries === '[]') {
-  //     return
-  //   }
-
-  //   var idx = this.state.queryIndex;
-  //   if (idx === -1 || (idx + 1) === queries.length) {
-  //     return
-  //   }
-  //   this.setState({
-  //     queryIndex: idx + 1,
-  //     query: queries[idx + 1]
-  //   })
-  // }
 
   runQuery = (e: Event) => {
     e.preventDefault();
@@ -697,56 +661,7 @@ class App extends React.Component {
                         <button type="submit" className="btn btn-primary pull-right" onClick={this.runQuery}>Run</button>
                     </div>
                 </form>
-                <div className="App-editor">
-                  <AceEditor
-                    mode="logiql"
-                    theme="github"
-                    name="editor"
-                    editorProps={{$blockScrolling: Infinity}}
-                    width='100%'
-                    height='350px'
-                    fontSize='12px'
-                    value={this.state.query}
-                    focus={true}
-                    ref="code"
-                    showPrintMargin={false}
-                    wrapEnabled={true}
-                    onChange={this.queryChange}
-                    commands={[{
-                      name: 'runQuery',
-                      bindKey: {
-                        win: 'Ctrl-Enter',
-                        mac: 'Command-Enter'
-                      },
-                      exec: function(editor) {
-                        this.runQuery(new Event(''));
-                      }.bind(this)
-                    },
-                    {/*
-                    {
-                      name: 'previousQuery',
-                      bindKey: {
-                        win: 'Ctrl-Up',
-                        mac: 'Command-Up'
-                      },
-                      exec: function(editor) {
-                        this.previousQuery();
-                      }.bind(this)
-                    },
-                    {
-                      name: 'nextQuery',
-                      bindKey: {
-                        win: 'Ctrl-Down',
-                        mac: 'Command-Down'
-                      },
-                      exec: function(editor) {
-                        this.nextQuery();
-                      }.bind(this)
-                    }
-                  */}
-                    ]}
-                  />
-                </div>
+                <div className="App-editor" ref={editor => {this._editor = editor;}}/>
                 <div style={{marginTop: '10px', width: '100%', marginBottom: '100px'}}>
                   <span style={{marginLeft: '10px'}}><b>Previous Queries</b></span>
                   <table style={{ width: '100%', border: '1px solid black', margin: '10px 0px', padding: '0px 5px 5px 5px'}}>
@@ -791,35 +706,119 @@ class App extends React.Component {
   }
 
   componentDidMount = () => {
-    let keywords = [];
-    timeout(1000, fetch('http://localhost:8080/keywords', {
-        method: 'GET',
-        mode: 'cors',
-      }).then(checkStatus)
-      .then(parseJSON)
-      .then(function(result) {
-        keywords = result.keywords
-      })).catch(function(error) {
-      console.log(error.stack)
-      console.warn("In catch: Error while trying to fetch list of keywords", error)
-      return error
-    }).then(function(errorMsg) {
-      if(errorMsg !== undefined) {
-        console.warn("Error while trying to fetch list of keywords", errorMsg)
-      }
-    })
+    const CodeMirror = require('codemirror');
+    require('codemirror/addon/hint/show-hint');
+    require('codemirror/addon/comment/comment');
+    require('codemirror/addon/edit/matchbrackets');
+    require('codemirror/addon/edit/closebrackets');
+    require('codemirror/addon/fold/foldcode');
+    require('codemirror/addon/fold/foldgutter');
+    require('codemirror/addon/fold/brace-fold');
+    require('codemirror/addon/lint/lint');
+    require('codemirror/keymap/sublime');
+    require('codemirror-graphql/hint');
+    require('codemirror-graphql/lint');
+    require('codemirror-graphql/info');
+    require('codemirror-graphql/jump');
+    require('codemirror-graphql/mode');
 
-    var predicateCompleter = {
-      getCompletions: function(editor, session, pos, prefix, callback) {
-        callback(null, keywords.map(function(kw) {
-          return {name: kw.name, value: kw.name, meta: kw.type}
-        }));
+    this.editor = CodeMirror(this._editor, {
+      value: this.state.query,
+      lineNumbers: true,
+      tabSize: 2,
+      lineWrapping: true,
+      mode: 'graphql',
+      theme: 'graphiql',
+      keyMap: 'sublime',
+      autoCloseBrackets: true,
+      showCursorWhenSelecting: true,
+      foldGutter: true,
+      // hintOptions: {
+      //   schema: this.props.schema,
+      //   closeOnUnfocus: false,
+      //   completeSingle: false,
+      // },
+      gutters: [ 'CodeMirror-linenumbers', 'CodeMirror-foldgutter' ],
+      extraKeys: {
+      //   'Cmd-Space': () => this.editor.showHint({ completeSingle: true }),
+        'Ctrl-Space': () => this.editor.showHint({ completeSingle: true }),
+      //   'Alt-Space': () => this.editor.showHint({ completeSingle: true }),
+      //   'Shift-Space': () => this.editor.showHint({ completeSingle: true }),
+
+        'Cmd-Enter': () => {
+            this.runQuery(new Event(''));
+        },
+        'Ctrl-Enter': () => {
+            this.runQuery(new Event(''));
+        },
+
       }
+    });
+
+    let dictionary = ["pawan", "rawal"]
+
+CodeMirror.registerHelper('hint', 'predicateHint', function(editor) {
+    var cur = editor.getCursor(),
+        curLine = editor.getLine(cur.line);
+    var start = cur.ch,
+        end = start;
+    while (end < curLine.length && /[\w$]+/.test(curLine.charAt(end))) ++end;
+    while (start && /[\w$]+/.test(curLine.charAt(start - 1))) --start;
+    var curWord = start != end && curLine.slice(start, end);
+    var regex = new RegExp('^' + curWord, 'i');
+    return {
+        list: (!curWord ? [] : dictionary.filter(function(item) {
+            return item.match(regex);
+        })).sort(),
+        from: CodeMirror.Pos(cur.line, start),
+        to: CodeMirror.Pos(cur.line, end)
     }
-    let langTools = ace.acequire('ace/ext/language_tools');
-    langTools.setCompleters([predicateCompleter]);
-    this.refs.code.editor.setOption('enableBasicAutocompletion', true);
-    this.refs.code.editor.setOption('enableLiveAutocompletion', true);
+});
+
+CodeMirror.commands.autocomplete = function(cm) {
+    CodeMirror.showHint(cm, CodeMirror.hint.predicateHint);
+};
+
+    // this.editor.on("keyup", function (cm, event) {
+    //   // console.log(cm, "event", event)
+    //     if (!cm.state.completionActive && /*Enables keyboard navigation in autocomplete list*/
+    //         event.keyCode != 13) {        /*Enter - do not open autocomplete list just after item has been selected in it*/ 
+    //         CodeMirror.commands.autocomplete(cm, null, {completeSingle: false});
+    //     }
+    // });
+
+    this.editor.on('change', this.queryChange)
+
+
+    // let keywords = [];
+    // timeout(1000, fetch('http://localhost:8080/keywords', {
+    //     method: 'GET',
+    //     mode: 'cors',
+    //   }).then(checkStatus)
+    //   .then(parseJSON)
+    //   .then(function(result) {
+    //     keywords = result.keywords
+    //   })).catch(function(error) {
+    //   console.log(error.stack)
+    //   console.warn("In catch: Error while trying to fetch list of keywords", error)
+    //   return error
+    // }).then(function(errorMsg) {
+    //   if(errorMsg !== undefined) {
+    //     console.warn("Error while trying to fetch list of keywords", errorMsg)
+    //   }
+    // })
+
+    // var predicateCompleter = {
+    //   getCompletions: function(editor, session, pos, prefix, callback) {
+    //     callback(null, keywords.map(function(kw) {
+    //       return {name: kw.name, value: kw.name, meta: kw.type}
+    //     }));
+    //   }
+    // }
+    // let langTools = ace.acequire('ace/ext/language_tools');
+    // langTools.setCompleters([predicateCompleter]);
+    // this.refs.code.editor.setOption('enableBasicAutocompletion', true);
+    // this.refs.code.editor.setOption('enableLiveAutocompletion', true);
   }
 }
 
