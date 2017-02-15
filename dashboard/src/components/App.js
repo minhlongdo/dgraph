@@ -575,7 +575,7 @@ class App extends React.Component {
           // We process all the nodes and edges in the response in background and
           // store the structure in globalNodeSet and globalEdgeSet. We can use this
           // later when we do expansion of nodes.
-          let graph = processGraph(response, key, 20);
+          let graph = processGraph(response, key, -1);
             globalNodeSet = new vis.DataSet(graph[0])
             globalEdgeSet = new vis.DataSet(graph[1])
             that.setState({
@@ -758,8 +758,8 @@ class App extends React.Component {
       foldGutter: true,
       gutters: [ 'CodeMirror-linenumbers', 'CodeMirror-foldgutter' ],
       extraKeys: {
-        'Ctrl-Space': (cm) =>  { CodeMirror.showHint(cm, CodeMirror.hint.fromList, {words: keywords})},
-        'Cmd-Space': (cm) =>  { CodeMirror.showHint(cm, CodeMirror.hint.fromList, {words: keywords})},
+        'Ctrl-Space': (cm) =>  { CodeMirror.commands.autocomplete(cm)},
+        'Cmd-Space': (cm) =>  { CodeMirror.commands.autocomplete(cm)},
         'Cmd-Enter': () => {
             this.runQuery(new Event(''));
         },
@@ -772,13 +772,19 @@ class App extends React.Component {
 
     this.editor.on('change', this.queryChange)
 
- // this.editor.on("keyup", function (cm, event) {
- //  // console.log("here", this.editor)
- //        if (!cm.state.completionActive && /*Enables keyboard navigation in autocomplete list*/
- //            event.keyCode != 13) {        /*Enter - do not open autocomplete list just after item has been selected in it*/ 
- //            cm.execCommand("autocomplete");
- //        }
- //    });
+    CodeMirror.commands.autocomplete = function (cm) {
+      CodeMirror.showHint(cm, CodeMirror.hint.fromList, {
+        completeSingle: false,
+        words: keywords
+      })
+    }
+
+ this.editor.on("keyup", function (cm, event) {
+    const code = event.keyCode;
+    if (code >= 65 && code <= 90) {
+            CodeMirror.commands.autocomplete(cm);
+    }
+    });
   }
 }
 

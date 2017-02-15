@@ -81,6 +81,13 @@ function since(lastRun) {
 }
 
 class Query extends Component {
+  shouldComponentUpdate(nextProps, nextState) {
+    if(nextProps.lastRun === this.props.lastRun) {
+      return false
+    }
+    return true
+  }
+
   render() {
 const popover = (
   <Popover id={this.props.unique}>
@@ -90,7 +97,7 @@ const popover = (
   </Popover>
 );
 
-    let timeDiff = since(this.props.lastRun)
+    const timeDiff = since(this.props.lastRun)
     return (
       <tr className="query" style={{padding: '5px'}}>
          <td style={{padding: '0px 5px 0px 10px', width: '20%'}}>{timeDiff}</td>
