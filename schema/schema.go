@@ -73,3 +73,11 @@ func IndexedFields() []string {
 	}
 	return out
 }
+
+func Predicates() []string {
+	out := make([]string, 0, len(str))
+	for k := range str {
+		out = append(out, k)
+	}
+	return out
+}

@@ -3,10 +3,11 @@
 import React from 'react';
 
 import vis from 'vis';
-import 'brace';
+import * as ace from 'brace';
 import AceEditor from 'react-ace';
 import 'brace/mode/logiql';
 import 'brace/theme/github';
+import 'brace/ext/language_tools';
 import screenfull from 'screenfull';
 import classNames from 'classnames';
 
@@ -15,7 +16,6 @@ import Stats from './Stats';
 import Query from './Query';
 
 import '../assets/css/App.css'
-
 
 type Edge = {| id: string, from: string, to: string, arrows: string, label: string, title: string |}
 type Node = {| id: string, label: string, title: string, group: string, value: number |}
@@ -788,6 +788,38 @@ class App extends React.Component {
             </div>
           </div> </div>
     );
+  }
+
+  componentDidMount = () => {
+    let keywords = [];
+    timeout(1000, fetch('http://localhost:8080/keywords', {
+        method: 'GET',
+        mode: 'cors',
+      }).then(checkStatus)
+      .then(parseJSON)
+      .then(function(result) {
+        keywords = result.keywords
+      })).catch(function(error) {
+      console.log(error.stack)
+      console.warn("In catch: Error while trying to fetch list of keywords", error)
+      return error
+    }).then(function(errorMsg) {
+      if(errorMsg !== undefined) {
+        console.warn("Error while trying to fetch list of keywords", errorMsg)
+      }
+    })
+
+    var predicateCompleter = {
+      getCompletions: function(editor, session, pos, prefix, callback) {
+        callback(null, keywords.map(function(kw) {
+          return {name: kw.name, value: kw.name, meta: kw.type}
+        }));
+      }
+    }
+    let langTools = ace.acequire('ace/ext/language_tools');
+    langTools.setCompleters([predicateCompleter]);
+    this.refs.code.editor.setOption('enableBasicAutocompletion', true);
+    this.refs.code.editor.setOption('enableLiveAutocompletion', true);
   }
 }
 
