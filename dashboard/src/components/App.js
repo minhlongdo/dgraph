@@ -290,6 +290,8 @@ function renderNetwork(nodes: Array <Node>, edges: Array <Edge>) {
     }
   };
 
+  // container
+
   network = new vis.Network(container, data, options);
   let that = this;
 
@@ -350,7 +352,7 @@ function renderNetwork(nodes: Array <Node>, edges: Array <Edge>) {
     }
   });
 
-  window.onresize = function() { network.fit(); }
+  window.onresize = function() { network && network.fit(); }
   network.on("hoverNode", function(params) {
     // Only change properties if no node is selected.
     if (that.state.selectedNode) {
@@ -607,7 +609,7 @@ class App extends React.Component {
           // We process all the nodes and edges in the response in background and
           // store the structure in globalNodeSet and globalEdgeSet. We can use this
           // later when we do expansion of nodes.
-          let graph = processGraph(response, key, -1);
+          let graph = processGraph(response, key, 20);
             globalNodeSet = new vis.DataSet(graph[0])
             globalEdgeSet = new vis.DataSet(graph[1])
             that.setState({
@@ -616,7 +618,7 @@ class App extends React.Component {
             });
           }, 1000)
 
-          // We call procesGraph with a 40 node limit and calculate the whole dataset in
+          // We call procesGraph with a 20 node limit and calculate the whole dataset in
           // the background.
           var graph = processGraph(response, key, 20);
           setTimeout(function() {
@@ -631,7 +633,7 @@ class App extends React.Component {
           var timeTaken = (endTime.getTime() - startTime.getTime()) / 1000;
           let render: string = '';
           if (timeTaken > 1) {
-            render = timeTaken.toFixed(3) + 's';
+            render = timeTaken.toFixed(1) + 's';
           } else {
             render = (timeTaken - Math.floor(timeTaken)) * 1000 + 'ms';
           }
