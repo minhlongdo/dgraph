@@ -744,7 +744,7 @@ class App extends React.Component {
                   return <Label key={i} color={label.color} pred={label.pred} label={label.label}></Label>
                 }, this)}
               </div>
-              <Stats rendering={this.state.rendering} latency={this.state.latency} className="hidden-xs"></Stats>
+              <Stats rendering={this.state.rendering} latency={this.state.latency} class="hidden-xs"></Stats>
               <div>Nodes: {this.state.nodes}, Edges: {this.state.relations}</div>
               <div style={{height:'auto'}}>{this.state.partial === true ? 'We have only loaded a subset of the graph. Double click on a leaf node to expand its child nodes.': ''}</div>
               <div id="properties" style={{marginTop: '10px'}}>Current Node:<div className="App-properties" title={this.state.currentNode}><em><pre>{JSON.stringify(JSON.parse(this.state.currentNode), null, 2)}</pre></em></div>
@@ -752,7 +752,7 @@ class App extends React.Component {
               </div>
 
             </div>
-            <Stats rendering={this.state.rendering} latency={this.state.latency} className="visible-xs"></Stats>
+            <Stats rendering={this.state.rendering} latency={this.state.latency} class="visible-xs"></Stats>
             </div>
             </div>
             <div className="row">
