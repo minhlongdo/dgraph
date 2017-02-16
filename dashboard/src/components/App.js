@@ -10,6 +10,7 @@ import randomColor from 'randomcolor';
 import NavBar from './Navbar';
 import Stats from './Stats';
 import Query from './Query';
+import Label from './Label';
 
 import '../assets/css/App.css'
 require('codemirror/addon/hint/show-hint.css');
@@ -63,54 +64,62 @@ type GroupMap = {[key: string]: Group};
 
 // Picked up from http://graphicdesign.stackexchange.com/questions/3682/where-can-i-find-a-large-palette-set-of-contrasting-colors-for-coloring-many-d
 
-var initialRandomColors = ["#7d87b9", "#bec1d4",
- "#4a6fe3", "#8595e1", "#b5bbe3", "#e07b91", "#11c638", "#8dd593",
-"#f0b98d", "#9cded6", "#f6c4e1", "#f79cd4"];
+var initialRandomColors = ["#47c0ee", "#8dd593", "#f6c4e1", "#8595e1" , "#f79cd4", "#bec1d4",
+ "#b5bbe3","#7d87b9", "#e07b91", "#11c638", "#f0b98d", "#4a6fe3"];
 
 var randomColors = [];
 
 function getRandomColor() {
   if (randomColors.length === 0) {
-    console.log("here in length 0")
     return randomColor()
   }
 
-  let idx = Math.floor(Math.random() * (randomColors.length));
-  let color = randomColors[idx]
-  randomColors.splice(idx,1)
+  let color = randomColors[0]
+  randomColors.splice(0,1)
   return color
 }
 
+function checkAndAssign(groups, pred, l, edgeLabels) {
+  // This label hasn't been allocated yet.
+  groups[pred] = {
+    label: l,
+    color: getRandomColor()
+  }
+  // console.log(groups[pred])
+  edgeLabels[l] = true;
+}
+
 // This function shortens and calculates the label for a predicate.
-function getGroupPropertoes(pred: string, groups: GroupMap,
-    edgeLabels: MapOfBooleans): Group {
+function getGroupProperties(pred: string, edgeLabels: MapOfBooleans,
+ groups: GroupMap): Group {
   var prop = groups[pred]
   if (prop !== undefined) {
     // We have already calculated the label for this predicate.
     return prop
   }
 
-  var l
+  let l
+  let dotIdx = pred.indexOf(".")
+  if(dotIdx !== -1 && dotIdx !== 0 && dotIdx !== pred.length -1) {
+    l = pred[0] + pred[dotIdx+1]
+    checkAndAssign(groups,pred, l, edgeLabels)
+    return groups[pred]
+  }
+
   for (var i = 1; i <= pred.length; i++) {
     l = pred.substr(0, i)
-    if (groups[l] === undefined) {
-      // This label hasn't been allocated yet.
-      groups[pred] = {
-        label: l,
-        color: getRandomColor()
-      }
-      edgeLabels[l] = true;
-      break;
+    if (edgeLabels[l] === undefined) {
+      checkAndAssign(groups,pred, l, edgeLabels)
+      return groups[pred]
     }
     // If it has already been allocated, then we increase the substring length and look again.
   }
-  if (l === undefined) {
-    groups[pred] = {
-      label: pred,
-      color: getRandomColor()
-    }
-    edgeLabels[pred] = true;
+
+  groups[pred] = {
+    label: pred,
+    color: getRandomColor()
   }
+  edgeLabels[pred] = true;
   return groups[pred]
 }
 
@@ -131,14 +140,15 @@ function hasProperties(props: Object): boolean {
 type Src = {| id: string, pred: string |};
 type ResponseNode = {| node: Object, src: Src |};
 
+
+// Stores the map of a label to boolean (only true values are stored).
+// This helps quickly find if a label has already been assigned.
+var groups : GroupMap = {};
+
 function processGraph(response: Object, root: string, maxNodes: number) {
   let nodesStack: Array <ResponseNode> = [],
     // Contains map of a lable to its shortform thats displayed.
     predLabel: MapOfStrings = {},
-
-    // Stores the map of a label to boolean (only true values are stored).
-    // This helps quickly find if a label has already been assigned.
-    groups : GroupMap = {},
     // Map of whether a Node with an Uid has already been created. This helps
     // us avoid creating duplicating nodes while parsing the JSON structure
     // which is a tree.
@@ -214,7 +224,7 @@ function processGraph(response: Object, root: string, maxNodes: number) {
       }
     }
 
-    let props = getGroupPropertoes(obj.src.pred, predLabel, groups)
+    let props = getGroupProperties(obj.src.pred, predLabel, groups)
     if (!uidMap[properties["_uid_"]]) {
       uidMap[properties["_uid_"]] = true
       if (hasProperties(properties) || hasChildNodes) {
@@ -244,7 +254,12 @@ function processGraph(response: Object, root: string, maxNodes: number) {
     }
   }
 
-  return [nodes, edges];
+  var plotAxis = []
+  for(let pred in groups) {
+    plotAxis.push({"label": groups[pred]["label"], "pred": pred, "color": groups[pred]["color"]});
+  }
+
+  return [nodes, edges, plotAxis];
 }
 
 var doubleClickTime = 0;
@@ -453,7 +468,8 @@ type State = {
   nodes: number,
   relations: number,
   graph: string,
-  graphHeight: string
+  graphHeight: string,
+  plotAxis: Array <Object>
 };
 
 type Props = {
@@ -484,6 +500,7 @@ class App extends React.Component {
       relations: 0,
       graph: '',
       graphHeight: 'fixed-height',
+      plotAxis: []
     };
   }
 
@@ -524,7 +541,8 @@ class App extends React.Component {
       nodes: 0,
       relations: 0,
       resType: 'hourglass',
-      lastQuery: this.state.query
+      lastQuery: this.state.query,
+      plotAxis: []
     }
   }
 
@@ -572,6 +590,7 @@ class App extends React.Component {
     network && network.destroy();
     this.setState(this.resetState());
     randomColors = initialRandomColors.slice();
+    groups = {};
 
     var that = this;
     timeout(60000, fetch('http://localhost:8080/query?debug=true', {
@@ -608,9 +627,11 @@ class App extends React.Component {
           let graph = processGraph(response, key, -1);
             globalNodeSet = new vis.DataSet(graph[0])
             globalEdgeSet = new vis.DataSet(graph[1])
+
             that.setState({
               nodes: graph[0].length,
-              relations: graph[1].length
+              relations: graph[1].length,
+              plotAxis: graph[2]
             });
           }, 200)
 
@@ -716,9 +737,15 @@ class App extends React.Component {
               }
               <div style={{width: '100%', height: '100%', padding: '5px'}} id="response">
               <div className={this.state.graphHeight}>
-              <div id="graph" className={graphClass}>{this.state.response}</div>
+                <div id="graph" className={graphClass}>{this.state.response}</div>
               </div>
-              <Stats rendering={this.state.rendering} latency={this.state.latency} class="hidden-xs"></Stats>
+              <div style={{padding: '10px 20px 10px 10px', 'borderWidth': '0px 1px 1px 1px ', 'borderStyle': 'solid', 'borderColor': 'gray',
+              textAlign: 'right', margin: '0px 0px 10px 0px'}}>
+                {this.state.plotAxis.map(function(label, i) {
+                  return <Label key={i} color={label.color} pred={label.pred} label={label.label}></Label>
+                }, this)}
+              </div>
+              <Stats rendering={this.state.rendering} latency={this.state.latency} className="hidden-xs"></Stats>
               <div>Nodes: {this.state.nodes}, Edges: {this.state.relations}</div>
               <div style={{height:'auto'}}>{this.state.partial === true ? 'We have only loaded a subset of the graph. Double click on a leaf node to expand its child nodes.': ''}</div>
               <div id="properties" style={{marginTop: '10px'}}>Current Node:<div className="App-properties" title={this.state.currentNode}><em><pre>{JSON.stringify(JSON.parse(this.state.currentNode), null, 2)}</pre></em></div>
@@ -726,7 +753,7 @@ class App extends React.Component {
               </div>
 
             </div>
-            <Stats rendering={this.state.rendering} latency={this.state.latency} class="visible-xs"></Stats>
+            <Stats rendering={this.state.rendering} latency={this.state.latency} className="visible-xs"></Stats>
             </div>
             </div>
             <div className="row">
@@ -822,7 +849,7 @@ class App extends React.Component {
       var found = [];
       for (var i = 0; i < options.words.length; i++) {
         var word = options.words[i];
-        if (word.slice(0, term.length) == term)
+        if (word.slice(0, term.length) === term)
           found.push(word);
       }
 
