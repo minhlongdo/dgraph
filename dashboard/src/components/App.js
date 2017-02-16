@@ -5,6 +5,7 @@ import React from 'react';
 import vis from 'vis';
 import screenfull from 'screenfull';
 import classNames from 'classnames';
+import randomColor from 'randomcolor';
 
 import NavBar from './Navbar';
 import Stats from './Stats';
@@ -21,8 +22,7 @@ var network,
   globalNodeSet,
   globalEdgeSet;
 
-// TODO - Move these three functions to server or to some other component. They dont
-// really belong here.
+// TODO - Move these three functions to a helper.
 function getLabel(properties: Object): string {
   var label = "";
   if (properties["name"] !== undefined) {
@@ -58,10 +58,33 @@ function getLabel(properties: Object): string {
 type MapOfStrings = { [key: string]: string };
 type MapOfBooleans = { [key: string]: boolean};
 
+type Group = {| color: string, label: string |};
+type GroupMap = {[key: string]: Group};
+
+// Picked up from http://graphicdesign.stackexchange.com/questions/3682/where-can-i-find-a-large-palette-set-of-contrasting-colors-for-coloring-many-d
+
+var initialRandomColors = ["#7d87b9", "#bec1d4",
+ "#4a6fe3", "#8595e1", "#b5bbe3", "#e07b91", "#11c638", "#8dd593",
+"#f0b98d", "#9cded6", "#f6c4e1", "#f79cd4"];
+
+var randomColors = [];
+
+function getRandomColor() {
+  if (randomColors.length === 0) {
+    console.log("here in length 0")
+    return randomColor()
+  }
+
+  let idx = Math.floor(Math.random() * (randomColors.length));
+  let color = randomColors[idx]
+  randomColors.splice(idx,1)
+  return color
+}
+
 // This function shortens and calculates the label for a predicate.
-function getPredProperties(pred: string, predLabel: MapOfStrings,
-    edgeLabels: MapOfBooleans): string {
-  var prop = predLabel[pred]
+function getGroupPropertoes(pred: string, groups: GroupMap,
+    edgeLabels: MapOfBooleans): Group {
+  var prop = groups[pred]
   if (prop !== undefined) {
     // We have already calculated the label for this predicate.
     return prop
@@ -70,19 +93,25 @@ function getPredProperties(pred: string, predLabel: MapOfStrings,
   var l
   for (var i = 1; i <= pred.length; i++) {
     l = pred.substr(0, i)
-    if (edgeLabels[l] === undefined) {
+    if (groups[l] === undefined) {
       // This label hasn't been allocated yet.
-      predLabel[pred] = l
+      groups[pred] = {
+        label: l,
+        color: getRandomColor()
+      }
       edgeLabels[l] = true;
       break;
     }
     // If it has already been allocated, then we increase the substring length and look again.
   }
   if (l === undefined) {
-    predLabel[pred] = pred;
+    groups[pred] = {
+      label: pred,
+      color: getRandomColor()
+    }
     edgeLabels[pred] = true;
   }
-  return predLabel[pred]
+  return groups[pred]
 }
 
 function hasChildren(node: Object): boolean{
@@ -109,7 +138,7 @@ function processGraph(response: Object, root: string, maxNodes: number) {
 
     // Stores the map of a label to boolean (only true values are stored).
     // This helps quickly find if a label has already been assigned.
-    edgeLabels : MapOfBooleans = {},
+    groups : GroupMap = {},
     // Map of whether a Node with an Uid has already been created. This helps
     // us avoid creating duplicating nodes while parsing the JSON structure
     // which is a tree.
@@ -185,6 +214,7 @@ function processGraph(response: Object, root: string, maxNodes: number) {
       }
     }
 
+    let props = getGroupPropertoes(obj.src.pred, predLabel, groups)
     if (!uidMap[properties["_uid_"]]) {
       uidMap[properties["_uid_"]] = true
       if (hasProperties(properties) || hasChildNodes) {
@@ -193,20 +223,21 @@ function processGraph(response: Object, root: string, maxNodes: number) {
           label: getLabel(properties),
           title: JSON.stringify(properties, null, 2),
           group: obj.src.pred,
+          color: props.color,
           value: 1
         }
 		nodes.push(n)
       }
     }
 
-    let predProperties = getPredProperties(obj.src.pred, predLabel, edgeLabels)
     if (obj.src.id !== "") {
       var e: Edge = {
         id: [obj.src.id, properties["_uid_"]].join("-"),
         from: obj.src.id,
         to: properties["_uid_"],
         title: obj.src.pred,
-        label: predProperties,
+        label: props.label,
+        color: props.color,
         arrows: 'to'
       }
       edges.push(e)
@@ -540,6 +571,7 @@ class App extends React.Component {
     // Resetting state
     network && network.destroy();
     this.setState(this.resetState());
+    randomColors = initialRandomColors.slice();
 
     var that = this;
     timeout(60000, fetch('http://localhost:8080/query?debug=true', {
@@ -580,7 +612,7 @@ class App extends React.Component {
               nodes: graph[0].length,
               relations: graph[1].length
             });
-          }, 1000)
+          }, 200)
 
           // We call procesGraph with a 20 node limit and calculate the whole dataset in
           // the background.
