@@ -234,9 +234,8 @@ function processGraph(response: Object, root: string, maxNodes: number) {
           title: JSON.stringify(properties, null, 2),
           group: obj.src.pred,
           color: props.color,
-          value: 1
         }
-		nodes.push(n)
+		    nodes.push(n)
       }
     }
 
@@ -616,7 +615,8 @@ class App extends React.Component {
           // We got the result for a query.
           let response: Object = result[key]
           that.setState({
-            'latency': result.server_latency.total
+            latency: result.server_latency.total,
+            resType: ''
           });
           var startTime = new Date();
 
@@ -624,15 +624,15 @@ class App extends React.Component {
           // We process all the nodes and edges in the response in background and
           // store the structure in globalNodeSet and globalEdgeSet. We can use this
           // later when we do expansion of nodes.
-          let graph = processGraph(response, key, -1);
-            globalNodeSet = new vis.DataSet(graph[0])
-            globalEdgeSet = new vis.DataSet(graph[1])
+            let graph = processGraph(response, key, -1);
+              globalNodeSet = new vis.DataSet(graph[0])
+              globalEdgeSet = new vis.DataSet(graph[1])
 
-            that.setState({
-              nodes: graph[0].length,
-              relations: graph[1].length,
-              plotAxis: graph[2]
-            });
+              that.setState({
+                nodes: graph[0].length,
+                relations: graph[1].length,
+                plotAxis: graph[2]
+              });
           }, 200)
 
           // We call procesGraph with a 20 node limit and calculate the whole dataset in
@@ -656,7 +656,6 @@ class App extends React.Component {
           }
           that.setState({
             'rendering': render,
-            'resType': 'success-res'
           });
         } else {
           console.warn("We shouldn't be here really")
