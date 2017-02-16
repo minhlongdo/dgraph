@@ -13,7 +13,6 @@ import Query from './Query';
 import '../assets/css/App.css'
 require('codemirror/addon/hint/show-hint.css');
 
-
 type Edge = {| id: string, from: string, to: string, arrows: string, label: string, title: string |}
 type Node = {| id: string, label: string, title: string, group: string, value: number |}
 
@@ -221,7 +220,6 @@ var doubleClickTime = 0;
 var threshold = 200;
 
 function doOnClick(params) {
-  console.log("in do on click")
   if (params.nodes.length > 0) {
     var nodeUid = params.nodes[0],
       currentNode = globalNodeSet.get(nodeUid);
@@ -766,11 +764,38 @@ class App extends React.Component {
         'Ctrl-Enter': () => {
             this.runQuery(new Event(''));
         },
-
       },
+      autofocus: true
     });
 
+    this.editor.setCursor(this.editor.lineCount(), 0);
+
     this.editor.on('change', this.queryChange)
+
+    CodeMirror.registerHelper("hint", "fromList", function(cm, options) {
+      var cur = cm.getCursor(), token = cm.getTokenAt(cur);
+      var to = CodeMirror.Pos(cur.line, token.end);
+      if (token.string && /\w/.test(token.string[token.string.length - 1])) {
+        var term = token.string, from = CodeMirror.Pos(cur.line, token.start);
+      } else {
+        var term = "", from = to;
+      }
+
+      // So that we don't autosuggest for anyof/allof filter values which
+      // would be inside quotes.
+      if(term.length > 0 && term[0] === '"') {
+        return {list: [], from: from, to: to}
+      }
+
+      var found = [];
+      for (var i = 0; i < options.words.length; i++) {
+        var word = options.words[i];
+        if (word.slice(0, term.length) == term)
+          found.push(word);
+      }
+
+      if (found.length) return {list: found, from: from, to: to};
+    });
 
     CodeMirror.commands.autocomplete = function (cm) {
       CodeMirror.showHint(cm, CodeMirror.hint.fromList, {
@@ -779,10 +804,11 @@ class App extends React.Component {
       })
     }
 
- this.editor.on("keyup", function (cm, event) {
+ this.editor.on("keydown", function (cm, event) {
     const code = event.keyCode;
-    if (code >= 65 && code <= 90) {
-            CodeMirror.commands.autocomplete(cm);
+
+    if (!event.ctrlKey && code >= 65 && code <= 90) {
+      CodeMirror.commands.autocomplete(cm);
     }
     });
   }
