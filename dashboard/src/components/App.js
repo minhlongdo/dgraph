@@ -108,6 +108,11 @@ function getGroupProperties(pred: string, edgeLabels: MapOfBooleans,
 
   for (var i = 1; i <= pred.length; i++) {
     l = pred.substr(0, i)
+    // If the first character is not an alphabet we just continue.
+    // This saves us from selecting ~ in case of reverse indexed preds.
+    if (l.length === 1  && l.toLowerCase() == l.toUpperCase()) {
+      continue
+    }
     if (edgeLabels[l] === undefined) {
       checkAndAssign(groups,pred, l, edgeLabels)
       return groups[pred]
