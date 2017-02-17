@@ -85,10 +85,12 @@ type varInfo struct {
 type varMap map[string]varInfo
 
 // FilterTree is the result of parsing the filter directive.
+// Either we have operation like "and", "or" and more Children FilterTree
+// Or a Function at leaf : to perform the filtering.
 type FilterTree struct {
 	Op    string
-	Func  *Function
 	Child []*FilterTree
+	Func  *Function
 }
 
 // Function holds the information about gql functions.
@@ -129,9 +131,12 @@ func (f *Function) IsPasswordVerifier() bool {
 
 // DebugPrint is useful for debugging.
 func (gq *GraphQuery) DebugPrint(prefix string) {
-	x.Printf("%s[%x %q %q->%q]\n", prefix, gq.UID, gq.Attr, gq.Alias)
+	x.Printf("%s[uid: %x attr: %q alias: %q]\n", prefix, gq.UID, gq.Attr, gq.Alias)
 	for _, c := range gq.Children {
 		c.DebugPrint(prefix + "|->")
+	}
+	if gq.Filter != nil {
+		x.Printf(prefix + "|->filters:" + gq.Filter.debugString())
 	}
 }
 

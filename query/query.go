@@ -140,6 +140,7 @@ type params struct {
 // client convenient formats, like GraphQL / JSON.
 type SubGraph struct {
 	Attr        string
+	facet       string
 	Params      params
 	counts      []uint32
 	values      []*task.Value
@@ -157,6 +158,10 @@ type SubGraph struct {
 
 	// destUIDs is a list of destination UIDs, after applying filters, pagination.
 	DestUIDs *task.List
+}
+
+func (sg *SubGraph) isFacetFilter() bool {
+	return sg.facet != ""
 }
 
 // DebugPrint prints out the SubGraph tree in a nice format for debugging purposes.
@@ -415,12 +420,19 @@ func isPresent(list []string, str string) bool {
 	return false
 }
 
-func filterCopy(sg *SubGraph, ft *gql.FilterTree) error {
+func filterCopy(sg, parent *SubGraph, ft *gql.FilterTree) error {
 	// Either we'll have an operation specified, or the function specified.
 	if len(ft.Op) > 0 {
 		sg.FilterOp = ft.Op
 	} else {
-		sg.Attr = ft.Func.Attr
+		// If we want to filter based on facet, then attr is parent's attr
+		// and filtertree's attribute is facet.
+		if ft.Func.IsFacet {
+			sg.Attr = parent.Attr
+			sg.facet = ft.Func.Attr
+		} else {
+			sg.Attr = ft.Func.Attr
+		}
 		if !isValidFuncName(ft.Func.Name) {
 			return x.Errorf("Invalid function name : %s", ft.Func.Name)
 		}
@@ -430,7 +442,7 @@ func filterCopy(sg *SubGraph, ft *gql.FilterTree) error {
 	}
 	for _, ftc := range ft.Child {
 		child := &SubGraph{}
-		if err := filterCopy(child, ftc); err != nil {
+		if err := filterCopy(child, sg, ftc); err != nil {
 			return err
 		}
 		sg.Filters = append(sg.Filters, child)
@@ -501,13 +513,14 @@ func treeCopy(ctx context.Context, gq *gql.GraphQuery, sg *SubGraph) error {
 					" please place the filter on the upper level"
 				return errors.New(note)
 			}
-			dst.SrcFunc = append(sg.SrcFunc, gchild.Func.Name)
+			// should not next line be using "dst" instead of "sg".
+			dst.SrcFunc = append(dst.SrcFunc, gchild.Func.Name)
 			dst.SrcFunc = append(dst.SrcFunc, gchild.Func.Args...)
 		}
 
 		if gchild.Filter != nil {
 			dstf := &SubGraph{}
-			if err := filterCopy(dstf, gchild.Filter); err != nil {
+			if err := filterCopy(dstf, dst, gchild.Filter); err != nil {
 				return err
 			}
 			dst.Filters = append(dst.Filters, dstf)
@@ -650,7 +663,7 @@ func newGraph(ctx context.Context, gq *gql.GraphQuery) (*SubGraph, error) {
 	// Copy roots filter.
 	if gq.Filter != nil {
 		sgf := &SubGraph{}
-		if err := filterCopy(sgf, gq.Filter); err != nil {
+		if err := filterCopy(sgf, sg, gq.Filter); err != nil {
 			return nil, err
 		}
 		sg.Filters = append(sg.Filters, sgf)
