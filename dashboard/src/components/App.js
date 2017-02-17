@@ -375,10 +375,30 @@ function renderNetwork(nodes: Array <Node>, edges: Array <Edge>) {
         // TODO -See if we can set a meta property to a node to know that its
         // expanded or closed and avoid this computation.
       if (expanded) {
-        data.nodes.remove(adjacentNodeIds)
-        data.edges.remove(outgoingEdges.map(function(edge) {
+        let allNodes = adjacentNodeIds.slice();
+        let allEdges = outgoingEdges.map(function(edge) {
           return edge.id
-        }))
+        });
+
+        while(adjacentNodeIds.length > 0) {
+          let node = adjacentNodeIds.pop()
+          let connectedEdges = data.edges.get({
+            filter: function(edge) {
+              return edge.from === node
+            }
+          })
+
+          let connectedNodes = connectedEdges.map(function(edge) {
+            return edge.to
+          })
+
+          allNodes = allNodes.concat(connectedNodes)
+          allEdges = allEdges.concat(connectedEdges)
+          adjacentNodeIds = adjacentNodeIds.concat(connectedNodes)
+        }
+
+        data.nodes.remove(allNodes);
+        data.edges.remove(allEdges);
       } else {
         data.nodes.update(adjacentNodes)
         data.edges.update(outgoingEdges)
@@ -755,8 +775,8 @@ class App extends React.Component {
               <div className={this.state.graphHeight}>
                 <div id="graph" className={graphClass}>{this.state.response}</div>
               </div>
-              <div style={{padding: '10px 20px 10px 10px', 'borderWidth': '0px 1px 1px 1px ', 'borderStyle': 'solid', 'borderColor': 'gray',
-              textAlign: 'right', margin: '0px 0px 10px 0px'}}>
+              <div style={{padding: '5px', 'borderWidth': '0px 1px 1px 1px ', 'borderStyle': 'solid', 'borderColor': 'gray',
+              textAlign: 'right', margin: '0px'}}>
                 <div style={{marginRight: '10px',marginLeft: 'auto'}}>
                 {this.state.plotAxis.map(function(label, i) {
                   return <Label key={i} color={label.color} pred={label.pred} label={label.label}></Label>

@@ -37,7 +37,7 @@
 .App-fullscreen {
     position: absolute;
     top: 0px;
-    right: 10px;
+    right: 20px;
     height: 30px;
     width: 30px;
     cursor: pointer;
@@ -92,7 +92,7 @@ tr.query pre:hover {
 }
 
 .full-height {
-    height: calc(100vh - 260px);
+    height: calc(100vh - 230px);
     border: 1px solid gray;
     border-bottom: 0px;
 }
