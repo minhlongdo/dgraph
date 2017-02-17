@@ -577,8 +577,18 @@ class App extends React.Component {
 
     // We changed the API to hold array of objects instead of strings, so lets clear their localStorage.
     if(queries.length !== 0 && typeof(queries[0]) === "string") {
-      localStorage.setItem("queries", '[]');
-      return [-1, "", []]
+      let newQueries = [];
+      let twoDaysAgo = new Date();
+      twoDaysAgo.setDate(twoDaysAgo.getDate() -2);
+
+      for(let i=0; i< queries.length;i++) {
+        newQueries.push({
+          text: queries[i],
+          lastRun: twoDaysAgo
+        })
+      }
+      localStorage.setItem("queries", JSON.stringify(newQueries));
+      return [0, newQueries[0].text, newQueries]
     }
     // This means queries has atleast one element.
 
