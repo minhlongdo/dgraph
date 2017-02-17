@@ -92,7 +92,7 @@ tr.query pre:hover {
 }
 
 .full-height {
-    height: calc(100vh - 280px);
+    height: calc(100vh - 320px);
     border: 1px solid gray;
     border-bottom: 0px;
 }
@@ -125,7 +125,6 @@ tr.query pre:hover {
   width: 20px;
   display: inline-block;
 }
-
 
 /* BASICS */
 

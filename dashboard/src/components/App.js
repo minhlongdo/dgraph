@@ -515,7 +515,8 @@ class App extends React.Component {
           relations: 0,
           selectedNode: false,
           partial: false,
-          currentNode: '{}'
+          currentNode: '{}',
+          plotAxis: []
         });
     }
     window.scrollTo(0, 0);
@@ -540,6 +541,7 @@ class App extends React.Component {
       nodes: 0,
       relations: 0,
       resType: 'hourglass',
+      partial: false,
       lastQuery: this.state.query,
       plotAxis: []
     }
@@ -715,8 +717,8 @@ class App extends React.Component {
                 </form>
                 <div className="App-editor" ref={editor => {this._editor = editor;}}/>
                 <div style={{marginTop: '10px', width: '100%', marginBottom: '100px'}}>
-                  <span style={{marginLeft: '10px'}}><b>Previous Queries</b></span>
-                  <table style={{ width: '100%', border: '1px solid black', margin: '10px 0px', padding: '0px 5px 5px 5px'}}>
+                  <span><b>Previous Queries</b></span>
+                  <table style={{ width: '100%', border: '1px solid black', margin: '15px 0px', padding: '0px 5px 5px 5px'}}>
                     <tbody style={{height: '500px',overflowY: 'scroll', display: 'block'}}>
                     {this.state.queries.map(function (query, i) {
                       return <Query text={query.text} update={this.updateQuery} key={i} lastRun={query.lastRun} unique={i}></Query>;
@@ -726,7 +728,7 @@ class App extends React.Component {
                 </div>
               </div>
             <div className="col-sm-7">
-              <label> Response </label>
+              <label style={{marginLeft: '5px'}}> Response </label>
                             {
                 screenfull.enabled  &&
               <div className="pull-right App-fullscreen" onClick={this.enterFullScreen}>
@@ -740,9 +742,11 @@ class App extends React.Component {
               </div>
               <div style={{padding: '10px 20px 10px 10px', 'borderWidth': '0px 1px 1px 1px ', 'borderStyle': 'solid', 'borderColor': 'gray',
               textAlign: 'right', margin: '0px 0px 10px 0px'}}>
+                <div style={{marginRight: '10px',marginLeft: 'auto'}}>
                 {this.state.plotAxis.map(function(label, i) {
                   return <Label key={i} color={label.color} pred={label.pred} label={label.label}></Label>
                 }, this)}
+                </div>
               </div>
               <Stats rendering={this.state.rendering} latency={this.state.latency} class="hidden-xs"></Stats>
               <div>Nodes: {this.state.nodes}, Edges: {this.state.relations}</div>

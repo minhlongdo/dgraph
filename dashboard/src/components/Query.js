@@ -82,7 +82,9 @@ function since(lastRun) {
 
 class Query extends Component {
   shouldComponentUpdate(nextProps, nextState) {
-    if(nextProps.lastRun === this.props.lastRun) {
+    let timeNow = new Date();
+    let diff = (timeNow - this.props.lastRun) /1000;
+    if(diff < 60) {
       return false
     }
     return true
@@ -103,7 +105,7 @@ const popover = (
          <td style={{padding: '0px 5px 0px 10px', width: '20%'}}>{timeDiff}</td>
          <td style={{padding: '0px 10px 0px 5px'}}>
          <OverlayTrigger delayShow={1500} delayHide={0}
-        overlay={popover} placement="bottom">
+        overlay={popover} placement="top">
             <pre style={{whiteSpace: 'pre-wrap', backgroundColor: '#f0ece9', margin: '5px 0px', wordBreak: 'break-word'}}
             onClick={this.props.update} data-query={this.props.text}>{getQueryStructure(prettifyQuery(this.props.text))}
             </pre>
