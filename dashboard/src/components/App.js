@@ -758,10 +758,13 @@ class App extends React.Component {
                 }, this)}
                 </div>
               </div>
-              <Stats rendering={this.state.rendering} latency={this.state.latency} class="hidden-xs"></Stats>
-              <div>Nodes: {this.state.nodes}, Edges: {this.state.relations}</div>
-              <div style={{height:'auto'}}>{this.state.partial === true ? 'We have only loaded a subset of the graph. Double click on a leaf node to expand its child nodes.': ''}</div>
-              <div id="properties" style={{marginTop: '10px'}}>Current Node:<div className="App-properties" title={this.state.currentNode}><em><pre>{JSON.stringify(JSON.parse(this.state.currentNode), null, 2)}</pre></em></div>
+              <div style={{fontSize: '12px'}}>
+                <Stats rendering={this.state.rendering} latency={this.state.latency} class="hidden-xs"></Stats>
+                <div>Nodes: {this.state.nodes}, Edges: {this.state.relations}</div>
+                <div style={{height:'auto'}}>{this.state.partial === true ? 'We have only loaded a subset of the graph. Double click on a leaf node to expand its child nodes.': ''}</div>
+                <div id="properties" style={{marginTop: '5px'}}>Current Node:<div className="App-properties" title={this.state.currentNode}>
+                <em><pre style={{fontSize: '10px'}}>{JSON.stringify(JSON.parse(this.state.currentNode), null, 2)}</pre></em></div>
+              </div>
               </div>
               </div>
 

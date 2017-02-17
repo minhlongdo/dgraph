@@ -17,7 +17,7 @@
 .App-statistics {
     display: inline-block;
     padding: 5px;
-    margin-top: 10px;
+    margin-top: 5px;
     margin-bottom: 100px;
 }
 
@@ -26,9 +26,9 @@
     justify-content: center;
     align-content: center;
     flex-direction: column;
-    margin-top: 10px;
+    margin-top: 5px;
     margin-bottom: 10px;
-    height: 150px;
+    height: 120px;
     border: 1px solid gray;
     padding: 10px;
     overflow: auto;
@@ -92,7 +92,7 @@ tr.query pre:hover {
 }
 
 .full-height {
-    height: calc(100vh - 320px);
+    height: calc(100vh - 260px);
     border: 1px solid gray;
     border-bottom: 0px;
 }

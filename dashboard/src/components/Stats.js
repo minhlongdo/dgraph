@@ -11,7 +11,7 @@ class Stats extends Component {
   	</span>
   )
     return (
-      <div style={{marginTop: '10px'}} className={`App-stats ${this.props.class}`}>
+      <div style={{marginTop: '5px'}} className={`App-stats ${this.props.class}`}>
       <span>{this.props.latency !== '' && this.props.rendering !== '' ? display : ''}</span>
       </div>
     )
