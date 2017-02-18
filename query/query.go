@@ -173,7 +173,7 @@ func (sg *SubGraph) DebugPrint(prefix string) {
 	if sg.DestUIDs != nil {
 		dst = algo.ListLen(sg.DestUIDs)
 	}
-	x.Printf("%s[%q Alias:%q Func:%v SrcSz:%v Op:%q DestSz:%v Dest: %p ValueSz:%v]\n",
+	x.Printf("%s[Attr: %q Alias:%q Func:%v SrcSz:%v Op:%q DestSz:%v Dest: %p ValueSz:%v]\n",
 		prefix, sg.Attr, sg.Params.Alias, sg.SrcFunc, src, sg.FilterOp,
 		dst, sg.DestUIDs, len(sg.values))
 	for _, f := range sg.Filters {
@@ -271,7 +271,7 @@ func (sg *SubGraph) preTraverse(uid uint64, dst, parent outputNode) error {
 			c.Value = task.ToBool(pc.values[idx])
 			uc := dst.New(pc.Attr)
 			uc.AddValue("checkpwd", c)
-			dst.AddListChild(pc.Attr, uc)			
+			dst.AddListChild(pc.Attr, uc)
 		} else if algo.ListLen(ul) > 0 || len(pc.Children) > 0 {
 			// We create as many predicate entity children as the length of uids for
 			// this predicate.
@@ -420,34 +420,43 @@ func isPresent(list []string, str string) bool {
 	return false
 }
 
-func filterCopy(sg, parent *SubGraph, ft *gql.FilterTree) error {
+func filterCopy(sg *SubGraph, ft *gql.FilterTree) (rootFilters []*SubGraph, err error) {
 	// Either we'll have an operation specified, or the function specified.
 	if len(ft.Op) > 0 {
 		sg.FilterOp = ft.Op
-	} else {
-		// If we want to filter based on facet, then attr is parent's attr
-		// and filtertree's attribute is facet.
-		if ft.Func.IsFacet {
-			sg.Attr = parent.Attr
-			sg.facet = ft.Func.Attr
-		} else {
-			sg.Attr = ft.Func.Attr
+		for _, ftc := range ft.Child {
+			child := &SubGraph{}
+			rfs, err := filterCopy(child, ftc)
+			if err != nil {
+				return nil, err
+			}
+			sg.Filters = append(sg.Filters, child)
+			if len(rfs) > 0 {
+				rootFilters = append(rootFilters, rfs...)
+			}
 		}
-		if !isValidFuncName(ft.Func.Name) {
-			return x.Errorf("Invalid function name : %s", ft.Func.Name)
-		}
-		sg.SrcFunc = append(sg.SrcFunc, ft.Func.Name)
-		sg.SrcFunc = append(sg.SrcFunc, ft.Func.Args...)
-		sg.Params.NeedsVar = append(sg.Params.NeedsVar, ft.Func.NeedsVar...)
+		return rootFilters, nil
 	}
-	for _, ftc := range ft.Child {
-		child := &SubGraph{}
-		if err := filterCopy(child, sg, ftc); err != nil {
-			return err
-		}
-		sg.Filters = append(sg.Filters, child)
+
+	// If we want to filter based on facet, then attr is parent's attr
+	// and filtertree's attribute is facet.
+	gr := sg
+	if ft.Func.IsFacet {
+		gr = &SubGraph{} // if its a facet, it is rootFilters.
+		gr.facet = ft.Func.Attr
 	}
-	return nil
+
+	gr.Attr = ft.Func.Attr
+	if !isValidFuncName(ft.Func.Name) {
+		return nil, x.Errorf("Invalid function name : %s", ft.Func.Name)
+	}
+	gr.SrcFunc = append(gr.SrcFunc, ft.Func.Name)
+	gr.SrcFunc = append(gr.SrcFunc, ft.Func.Args...)
+	gr.Params.NeedsVar = append(gr.Params.NeedsVar, ft.Func.NeedsVar...)
+	if ft.Func.IsFacet {
+		return []*SubGraph{gr}, nil
+	}
+	return nil, nil
 }
 
 func treeCopy(ctx context.Context, gq *gql.GraphQuery, sg *SubGraph) error {
@@ -460,7 +469,7 @@ func treeCopy(ctx context.Context, gq *gql.GraphQuery, sg *SubGraph) error {
 		if gchild.Attr == "_uid_" {
 			sg.Params.GetUID = true
 		} else if gchild.Attr == "password" { // query password is forbidden
-			if gchild.Func == nil || !gchild.Func.IsPasswordVerifier() { 
+			if gchild.Func == nil || !gchild.Func.IsPasswordVerifier() {
 				return errors.New("Password is not fetchable")
 			}
 		}
@@ -520,10 +529,14 @@ func treeCopy(ctx context.Context, gq *gql.GraphQuery, sg *SubGraph) error {
 
 		if gchild.Filter != nil {
 			dstf := &SubGraph{}
-			if err := filterCopy(dstf, dst, gchild.Filter); err != nil {
+			_, err := filterCopy(dstf, gchild.Filter)
+			if err != nil {
 				return err
 			}
 			dst.Filters = append(dst.Filters, dstf)
+			// if len(rfs) > 0 {
+			// 	sg.Filters = append(sg.Filters, rfs...)
+			// }
 		}
 
 		sg.Children = append(sg.Children, dst)
@@ -642,6 +655,7 @@ func newGraph(ctx context.Context, gq *gql.GraphQuery) (*SubGraph, error) {
 	}
 
 	if gq.Func != nil {
+		x.AssertTruef(!gq.Func.IsFacet, "can not have facet func at root.")
 		sg.Attr = gq.Func.Attr
 		if !isValidFuncName(gq.Func.Name) {
 			return nil, x.Errorf("Invalid function name : %s", gq.Func.Name)
@@ -663,10 +677,12 @@ func newGraph(ctx context.Context, gq *gql.GraphQuery) (*SubGraph, error) {
 	// Copy roots filter.
 	if gq.Filter != nil {
 		sgf := &SubGraph{}
-		if err := filterCopy(sgf, sg, gq.Filter); err != nil {
+		rfs, err := filterCopy(sgf, gq.Filter)
+		if err != nil {
 			return nil, err
 		}
 		sg.Filters = append(sg.Filters, sgf)
+		x.AssertTruef(rfs == nil || len(rfs) == 0, "No facet filers at root.")
 	}
 	return sg, nil
 }
@@ -691,6 +707,7 @@ func createTaskQuery(sg *SubGraph) *task.Query {
 	}
 	out := &task.Query{
 		Attr:       attr,
+		FacetKey:   sg.facet,
 		Reverse:    reverse,
 		SrcFunc:    sg.SrcFunc,
 		Count:      int32(sg.Params.Count),
@@ -723,7 +740,7 @@ func ProcessQuery(ctx context.Context, res gql.Result, l *Latency) ([]*SubGraph,
 		}
 		x.Trace(ctx, "Query parsed")
 		sgl = append(sgl, sg)
-		//sg.DebugPrint("---")
+		sg.DebugPrint("---")
 	}
 	l.Parsing += time.Since(loopStart)
 
@@ -914,10 +931,13 @@ func (sg *SubGraph) fillVars(mp map[string]*task.List) {
 // ProcessGraph processes the SubGraph instance accumulating result for the query
 // from different instances. Note: taskQuery is nil for root node.
 func ProcessGraph(ctx context.Context, sg, parent *SubGraph, rch chan error) {
+	// if sg is filter subgraph and parent is subgraph uses attr is real attribute..
+
 	var err error
 	if len(sg.Params.NeedsVar) != 0 && len(sg.SrcFunc) == 0 {
 		sg.uidMatrix = []*task.List{sg.DestUIDs}
 	} else if len(sg.Attr) == 0 {
+		fmt.Println("coming here abcdef..")
 		// If we have a filter SubGraph which only contains an operator,
 		// it won't have any attribute to work on.
 		// This is to allow providing SrcUIDs to the filter children.
@@ -944,9 +964,14 @@ func ProcessGraph(ctx context.Context, sg, parent *SubGraph, rch chan error) {
 			return
 		}
 
+		// task is now processed...
+
 		sg.uidMatrix = result.UidMatrix
 		sg.values = result.Values
 		sg.FacetsLists = result.FacetsLists
+
+		fmt.Println("attr: ", sg.Attr, " len(uidMatrix): ", len(sg.uidMatrix),
+			" len(result.Values): ", len(result.Values))
 		if len(sg.values) > 0 {
 			v := sg.values[0]
 			x.Trace(ctx, "Sample value for attr: %v Val: %v", sg.Attr, string(v.Val))

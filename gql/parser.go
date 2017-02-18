@@ -792,7 +792,7 @@ func (t *FilterTree) stringHelper(buf *bytes.Buffer) {
 		// Leaf node.
 		_, err := buf.WriteRune('(')
 		x.Check(err)
-		_, err = buf.WriteString(t.Func.Name)
+		_, err = buf.WriteString(" Name: " + t.Func.Name)
 		x.Check(err)
 
 		if len(t.Func.Attr) > 0 {
@@ -803,7 +803,7 @@ func (t *FilterTree) stringHelper(buf *bytes.Buffer) {
 			for _, arg := range args {
 				_, err = buf.WriteString(" \"")
 				x.Check(err)
-				_, err = buf.WriteString(arg)
+				_, err = buf.WriteString(" arg: " + arg)
 				x.Check(err)
 				_, err := buf.WriteRune('"')
 				x.Check(err)
@@ -814,7 +814,7 @@ func (t *FilterTree) stringHelper(buf *bytes.Buffer) {
 		return
 	}
 	// Non-leaf node.
-	_, err := buf.WriteRune('(')
+	_, err := buf.WriteString("( Op: ")
 	x.Check(err)
 	switch t.Op {
 	case "and":
@@ -1049,6 +1049,7 @@ func parseFilter(it *lex.ItemIterator) (*FilterTree, error) {
 			if !terminated {
 				return nil, x.Errorf("Expected ) to terminate func definition")
 			}
+			fmt.Printf("leaf: %s\n", leaf.debugString())
 			valueStack.push(leaf)
 		} else if item.Typ == itemLeftRound { // Just push to op stack.
 			opStack.push(&FilterTree{Op: "("})

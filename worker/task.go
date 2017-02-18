@@ -17,6 +17,7 @@
 package worker
 
 import (
+	"fmt"
 	"golang.org/x/net/context"
 	"strings"
 
@@ -86,8 +87,9 @@ func convertValue(attr, data string) (types.Val, error) {
 }
 
 type FuncType int
+
 const (
-	NotFn        FuncType = iota
+	NotFn FuncType = iota
 	AggregatorFn
 	CompareFn
 	GeoFn
@@ -115,10 +117,15 @@ func parseFuncType(arr []string) (FuncType, string) {
 	}
 }
 
+var ggcount int
+
 // processTask processes the query, accumulates and returns the result.
 func processTask(q *task.Query, gid uint32) (*task.Result, error) {
+	gcount := ggcount + 1
+	ggcount = gcount
 	attr := q.Attr
-
+	fmt.Println("******* attr start %s *******", gcount, " ", attr, q.Uids, " facetkey: ", q.FacetKey)
+	defer fmt.Println("*********** attr %s ends *******", gcount, " ", attr, q.Uids, q.FacetKey)
 	var tokens []string
 	var geoQuery *types.GeoQueryData
 	var err error
@@ -126,8 +133,21 @@ func processTask(q *task.Query, gid uint32) (*task.Result, error) {
 	var ineqValue types.Val
 	var ineqValueToken string
 	var n int
-	
+
 	fnType, f := parseFuncType(q.SrcFunc)
+	fmt.Println("fnType: ", fnType, " q.SrcFunc: ", q.SrcFunc, " attr: ",
+		gcount, " ", attr, " f: ", f)
+
+	// if q.FacetKey != "" {
+	// 	// ok, Should we use facet for only CompareFn
+	// 	n = algo.ListLen(q.Uids)
+	// 	goto TypeCheck
+	// }
+
+	// Refactor AggregatorFn and CompareFn logics into separate fns..
+	// and common code in one fn..
+	// and call specific and common code one after another.
+
 	switch fnType {
 	case AggregatorFn:
 		// confirm agrregator could apply on the attributes
@@ -212,6 +232,8 @@ func processTask(q *task.Query, gid uint32) (*task.Result, error) {
 		opts.Intersect = q.Uids
 	}
 
+	fmt.Println("attr: ", gcount, " ", attr, " n: ", n, " tokens: ", len(tokens), tokens)
+
 	for i := 0; i < n; i++ {
 		var key []byte
 		if fnType == AggregatorFn {
@@ -246,7 +268,7 @@ func processTask(q *task.Query, gid uint32) (*task.Result, error) {
 		out.Values = append(out.Values, newValue)
 
 		// get facets.
-		if q.FacetParam != nil {
+		if q.FacetParam != nil || q.FacetKey != "" {
 			if isValueEdge {
 				fs, err := pl.Facets(q.FacetParam)
 				if err != nil {
@@ -291,6 +313,7 @@ func processTask(q *task.Query, gid uint32) (*task.Result, error) {
 		out.UidMatrix = append(out.UidMatrix, pl.Uids(opts))
 	}
 
+	fmt.Println("attr: ", gcount, " ", attr, " len(out.UidMatrix): ", len(out.UidMatrix), " len(out.Values): ", len(out.Values))
 	if fnType == AggregatorFn && len(out.Values) > 0 {
 		var err error
 		typ, _ := schema.TypeOf(attr)
@@ -301,7 +324,10 @@ func processTask(q *task.Query, gid uint32) (*task.Result, error) {
 		out.Values = out.Values[0:1] // trim length to 1
 	}
 
+	fmt.Println("attr: ", gcount, " ", attr, " len(out.UidMatrix): ", len(out.UidMatrix), " len(out.Values): ", len(out.Values))
+
 	if fnType == CompareFn && len(tokens) > 0 && ineqValueToken == tokens[0] {
+		fmt.Println("coming to comparefn in attr: ", attr)
 		// Need to evaluate inequality for entries in the first bucket.
 		typ, err := schema.TypeOf(attr)
 		if err != nil || !typ.IsScalar() {
@@ -360,6 +386,11 @@ func processTask(q *task.Query, gid uint32) (*task.Result, error) {
 		}
 	}
 	out.IntersectDest = intersectDest
+	for i, o := range out.UidMatrix {
+		fmt.Println("uidmatrix : ", i, " : ", o)
+	}
+	fmt.Println("attr: ", gcount, " ", attr, " len(out.UidMatrix): ", len(out.UidMatrix), out.UidMatrix,
+		" len(out.Values): ", len(out.Values))
 	return &out, nil
 }
 

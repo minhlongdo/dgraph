@@ -237,6 +237,30 @@ func TestFacetsMutation(t *testing.T) {
 		js)
 }
 
+// // test facets with filters
+// func TestFacetsFilter(t *testing.T) {
+// 	populateGraphWithFacets(t)
+// 	// make 24 close friend of 1 : total 2 close friends.
+// 	addEdgeToUID(t, "friend", 1, 24, map[string]string{"close": "true"})
+// 	// get all friends close to 0x1
+// 	query := `
+// 		{
+// 			me(id:0x1) {
+// 				name
+// 				friend @filter(eq(@facets(close),true)) {
+// 					name
+// 				}
+// 			}
+// 		}
+// 	`
+// 	// friend @filter(anyof(name, "Andrea SomethingElse")) {
+
+// 	js := processToFastJSON(t, query)
+// 	require.JSONEq(t,
+// 		`{"me":[{"friend":[{"name":"Glenn Rhee"}],"name":"Michonne"}]}`,
+// 		js)
+// }
+
 func TestToProtoFacets(t *testing.T) {
 	populateGraphWithFacets(t)
 	query := `

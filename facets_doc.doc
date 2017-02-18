@@ -1,0 +1,261 @@
+## Facets : Edge key value pairs
+
+Dgraph support facets which are key value pairs on edges.
+Keys are strings and Values can be string, bool, int, float and datetime.
+For int and float, only decimal integer of upto 32 signed bits and 64 bit float values are accepted respectively.
+
+Example :
+```
+jq . <<< $(curl localhost:8080/query -XPOST -d $'
+mutation { set {
+  <alice> <name> "alice" .
+  <alice> <mobile> "040123456" (since=2006-01-02T15:04:05) .
+  <alice> <car> "MA0123" (since=2006-02-02T13:01:09, first=true) .
+ }
+}')
+```
+
+Querying `name` and `mobile` of `alice` gives us :
+```
+jq . <<< $(curl localhost:8080/query -XPOST -d $'
+{
+  debug(id:alice) {
+     name
+     mobile
+     car
+  }
+}')
+
+# Output:
+
+{
+  "debug": [
+    {
+      "car": "MA0123",
+      "mobile": "040123456",
+      "name": "alice"
+    }
+  ]
+}
+```
+
+We can ask for `facets` for `mobile` and `car` of `alice` using `@facets(since)`:
+```
+jq . <<< $(curl localhost:8080/query -XPOST -d $'
+{
+  debug(id:alice) {
+     name
+     mobile @facets(since)
+     car @facets(since)
+  }
+}')
+```
+and we get `@facets` key at same level as that of `mobile` and `car`.
+`@facets` map will have keys of `mobile` and `car` with their respective facets.
+```
+# Output
+{
+  "debug": [
+    {
+      "@facets": {
+        "car": {
+          "since": "2006-02-02T13:01:09Z"
+        },
+        "mobile": {
+          "since": "2006-01-02T15:04:05Z"
+        }
+      },
+      "car": "MA0123",
+      "mobile": "040123456",
+      "name": "alice"
+    }
+  ]
+}
+```
+
+You can also fetch all facets on an edge by simply using `@facets`.
+
+```
+jq . <<< $(curl localhost:8080/query -XPOST -d $'
+{
+  debug(id:alice) {
+     name
+     mobile @facets
+     car @facets
+  }
+}')
+
+# Ouput:
+
+{
+  "debug": [
+    {
+      "@facets": {
+        "car": {
+          "first": true,
+          "since": "2006-02-02T13:01:09Z"
+        },
+        "mobile": {
+          "since": "2006-01-02T15:04:05Z"
+        }
+      },
+      "car": "MA0123",
+      "mobile": "040123456",
+      "name": "alice"
+    }
+  ]
+}
+```
+
+Notice that you also get `first` under `car` key of `@facets` in this case.
+
+##  Facets on Uid edges :
+
+`friend` is an edge with facet `close-friend`.
+It is set to true for friendship between alice and bob
+and false for friendship between alice and charlie.
+
+```
+jq . <<< $(curl localhost:8080/query -XPOST -d $'
+mutation { set {
+  <alice> <name> "alice" .
+  <bob> <name> "bob" .
+  <bob> <car> "MA0134" (since=2006-02-02T13:01:09) .
+  <charlie> <name> "charlie" .
+  <alice> <friend> <bob> (close-friend=true) .
+  <alice> <friend> <charlie> (close-friend=false) .
+ }
+}')
+```
+
+If we query friends of `alice` we get :
+query1:
+
+```
+{
+   debug(id:alice) {
+     name
+     friend {
+       name
+     }
+   }
+}
+
+# Output :
+
+{
+  "debug": [
+    {
+      "friend": [
+        {
+          "name": "bob"
+        },
+        {
+          "name": "charlie"
+        }
+      ],
+      "name": "alice"
+    }
+  ]
+}
+
+```
+
+You can query back the facets with `@facets(close-friend)` :
+
+```
+{
+   debug(id:alice) {
+     name
+     friend @facets(close-friend) {
+       name
+     }
+   }
+}
+```
+
+This puts a key `@facets` in each of the child of `friend` in output of query1 [link to above query.].
+This keeps the relationship between which facet of `close-friend` belongs of which child.
+Since these facets come from parent, Dgraph uses key `_` to distinguish them from other
+`facets` at child level.
+
+```
+{
+  "debug": [
+    {
+      "friend": [
+        {
+          "@facets": {
+            "_": {
+              "close-friend": true
+            }
+          },
+          "name": "bob"
+        },
+        {
+          "@facets": {
+            "_": {
+              "close-friend": false
+            }
+          },
+          "name": "charlie"
+        }
+      ],
+      "name": "alice"
+    }
+  ]
+}
+```
+
+So, for uid edges like `friend`, facets go to the corresponding child's `@facets` under key `_`.
+
+To see output for both facets on uid-edges (like friend) and value-edges (like car) :
+
+```
+jq . <<< $(curl localhost:8080/query -XPOST -d $'{
+   debug(id:alice) {
+     name 
+     friend @facets {
+       name
+       car @facets
+     }
+   }
+ }')
+
+# Output:
+
+{
+  "debug": [
+    {
+      "friend": [
+        {
+          "@facets": {
+            "_": {
+              "close-friend": true
+            },
+            "car": {
+              "since": "2006-02-02T13:01:09Z"
+            }
+          },
+          "car": "MA0134",
+          "name": "bob"
+        },
+        {
+          "@facets": {
+            "_": {
+              "close-friend": false
+            }
+          },
+          "name": "charlie"
+        }
+      ],
+      "name": "alice"
+    }
+  ]
+}
+```
+
+Since, `bob` has a `car` and it has a facet `since`, it is part of same object as that of `bob`.
+Also, `close-friend` relationship between `bob` and `alice` is part of `bob`'s output object.
+For `charlie` who does not have `car` edge and no facets other than that of friend's `close-friend`.
+

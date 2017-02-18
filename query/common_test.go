@@ -154,6 +154,7 @@ func addGeoData(t *testing.T, ps *store.Store, uid uint64, p geom.T, name string
 func processToFastJSON(t *testing.T, query string) string {
 	res, err := gql.Parse(query)
 	require.NoError(t, err)
+	res.Query[0].DebugPrint("")
 
 	var l Latency
 	ctx := context.Background()

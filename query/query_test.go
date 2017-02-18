@@ -3367,3 +3367,20 @@ func TestMain(m *testing.M) {
 
 	os.Exit(m.Run())
 }
+
+func TestFacetsXYZ(t *testing.T) {
+	populateGraph(t)
+	query := `
+            {
+                    me(id:0x1) {
+                            friend @filter(eq(@facets(close), true)) {
+                                    name
+                            }
+                    }
+            }
+`
+	js := processToFastJSON(t, query)
+	require.EqualValues(t,
+		`{}`,
+		js)
+}
