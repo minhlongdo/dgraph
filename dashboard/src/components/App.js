@@ -823,7 +823,7 @@ class App extends React.Component {
     require('codemirror-graphql/mode');
 
     let keywords = [];
-    timeout(1000, fetch('http://localhost:8080/keywords', {
+    timeout(1000, fetch('http://localhost:8080/ui/keywords', {
         method: 'GET',
         mode: 'cors',
       }).then(checkStatus)
