@@ -1,0 +1,9 @@
+{
+    steven(func: allof(name.en, "steven spielberg")) {
+        _uid_
+		director.film {
+            _uid_
+			name
+        }
+    }
+}
