@@ -274,13 +274,13 @@ function doOnClick(params) {
       currentNode = globalNodeSet.get(nodeUid);
 
     this.setState({
-      currentNode: currentNode.title,
+      currentNode: JSON.parse(currentNode.title),
       selectedNode: true
     });
   } else {
     this.setState({
       selectedNode: false,
-      currentNode: '{}'
+      currentNode: {}
     })
   }
 }
@@ -347,7 +347,7 @@ function renderNetwork(nodes: Array <Node>, edges: Array <Edge>) {
 
       network.unselectAll();
       that.setState({
-        currentNode: currentNode.title,
+        currentNode: JSON.parse(currentNode.title),
         selectedNode: false
       });
 
@@ -429,7 +429,7 @@ function renderNetwork(nodes: Array <Node>, edges: Array <Edge>) {
       currentNode = globalNodeSet.get(nodeUid);
 
     that.setState({
-      currentNode: currentNode.title
+      currentNode: JSON.parse(currentNode.title)
     });
   });
 
@@ -487,7 +487,7 @@ type State = {
   latency: string,
   rendering: string,
   resType: string,
-  currentNode: string,
+  currentNode: Object,
   nodes: number,
   relations: number,
   graph: string,
@@ -518,7 +518,7 @@ class App extends React.Component {
       latency: '',
       rendering: '',
       resType: '',
-      currentNode: '{}',
+      currentNode: {},
       nodes: 0,
       relations: 0,
       graph: '',
@@ -539,7 +539,7 @@ class App extends React.Component {
           relations: 0,
           selectedNode: false,
           partial: false,
-          currentNode: '{}',
+          currentNode: {},
           plotAxis: []
         });
     }
@@ -561,7 +561,7 @@ class App extends React.Component {
       selectedNode: false,
       latency: '',
       rendering: '',
-      currentNode: '{}',
+      currentNode: {},
       nodes: 0,
       relations: 0,
       resType: 'hourglass',
@@ -736,6 +736,7 @@ class App extends React.Component {
 
   render = () => {
     var graphClass = classNames({ 'graph-s': true, 'fullscreen': this.state.graph === 'fullscreen' }, { 'App-graph': this.state.graph !== 'fullscreen' }, { 'error-res': this.state.resType === 'error-res' }, { 'success-res': this.state.resType === 'success-res' }, { 'hourglass': this.state.resType === 'hourglass' })
+    var that = this;
     return (
       <div>
       <NavBar></NavBar>
@@ -786,8 +787,15 @@ class App extends React.Component {
                 <Stats rendering={this.state.rendering} latency={this.state.latency} class="hidden-xs"></Stats>
                 <div>Nodes: {this.state.nodes}, Edges: {this.state.relations}</div>
                 <div style={{height:'auto'}}>{this.state.partial === true ? 'We have only loaded a subset of the graph. Double click on a leaf node to expand its child nodes.': ''}</div>
-                <div id="properties" style={{marginTop: '5px'}}>Current Node:<div className="App-properties" title={this.state.currentNode}>
-                <em><pre style={{fontSize: '10px'}}>{JSON.stringify(JSON.parse(this.state.currentNode), null, 2)}</pre></em></div>
+                <div id="properties" style={{marginTop: '5px'}}>Properties:<div className="App-properties">
+                  {Object.keys(this.state.currentNode).map(function (key, i) {
+                    return (
+                      <div className="App-properties-key-val" key={i}>
+                      <span className="App-properties-key">{key}</span>&nbsp;:
+                      <span className="App-properties-val">{that.state.currentNode[key]}</span></div>
+                    );
+                  })}
+                </div>
               </div>
               </div>
               </div>

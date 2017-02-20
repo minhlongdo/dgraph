@@ -22,16 +22,31 @@
 }
 
 .App-properties {
-    display: flex;
-    justify-content: center;
-    align-content: center;
-    flex-direction: column;
+    /*display: flex;*/
+    /*flex-direction: row;*/
+    /*flex-wrap: wrap;*/
     margin-top: 5px;
     margin-bottom: 10px;
-    height: 120px;
+    height: 60px;
     border: 1px solid gray;
-    padding: 10px;
+    padding: 5px;
     overflow: auto;
+    justify-content: space-around;
+}
+
+.App-properties-key-val {
+  width: 33%;
+  display: inline-flex;
+  padding: 0px 5px;
+}
+
+.App-properties-key {
+  color: #008000;
+  font-weight: bold
+}
+
+.App-properties-val {
+  color: #BA2121;
 }
 
 .App-fullscreen {
@@ -92,7 +107,7 @@ tr.query pre:hover {
 }
 
 .full-height {
-    height: calc(100vh - 250px);
+    height: calc(100vh - 180px);
     border: 1px solid gray;
     border-bottom: 0px;
 }
