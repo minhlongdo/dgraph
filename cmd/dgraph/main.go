@@ -699,6 +699,16 @@ func keywordHandler(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 	kws := keywords{Keywords: kw}
+
+	predefined := []string{"id", "_uid_", "after", "first", "offset", "count",
+		"@filter", "func", "anyof", "allof", "leq", "geq", "or", "and",
+		"orderasc", "orderdesc", "near", "within", "contains", "intersects"}
+
+	for _, w := range predefined {
+		kws.Keywords = append(kws.Keywords, keyword{
+			Name: w,
+		})
+	}
 	js, err := json.Marshal(kws)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)

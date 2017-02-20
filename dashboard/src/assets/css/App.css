@@ -92,7 +92,7 @@ tr.query pre:hover {
 }
 
 .full-height {
-    height: calc(100vh - 230px);
+    height: calc(100vh - 250px);
     border: 1px solid gray;
     border-bottom: 0px;
 }

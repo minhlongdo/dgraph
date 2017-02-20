@@ -874,11 +874,28 @@ class App extends React.Component {
 
     CodeMirror.registerHelper("hint", "fromList", function(cm, options) {
       var cur = cm.getCursor(), token = cm.getTokenAt(cur);
+
+      // This is so that we automatically have a space before (, so that auto-
+      // complete inside braces works. Otherwise it doesn't work for
+      // director.film(orderasc: release_date).
+      let openBrac = token.string.indexOf("(")
+      if(openBrac !== -1 && token.string[openBrac-1] != undefined &&
+        token.string[openBrac-1] != " "){
+        let oldString = token.string.substr(openBrac)
+        cm.replaceRange(" ", {line: cur.line, ch: token.start + openBrac})
+      }
+
       var to = CodeMirror.Pos(cur.line, token.end);
       if (token.string && /\w/.test(token.string[token.string.length - 1])) {
         var term = token.string, from = CodeMirror.Pos(cur.line, token.start);
       } else {
         var term = "", from = to;
+      }
+
+      // because Codemirror strips the @ from a directive.
+      if(token.state.kind === "Directive") {
+        term = "@" + term
+        from.ch -= 1
       }
 
       // So that we don't autosuggest for anyof/allof filter values which
@@ -887,10 +904,13 @@ class App extends React.Component {
         return {list: [], from: from, to: to}
       }
 
+      term = term.toLowerCase();
+
       var found = [];
       for (var i = 0; i < options.words.length; i++) {
         var word = options.words[i];
-        if (word.slice(0, term.length) === term)
+        // console.log("word", word, "term", term)
+        if (term.length > 0 && word.startsWith(term))
           found.push(word);
       }
 
