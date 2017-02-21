@@ -33,6 +33,7 @@ type server struct {
 	Addr    string // The public address of the server serving this node.
 	Leader  bool   // Set to true if the node is a leader of the group.
 	RaftIdx uint64 // The raft index which applied this membership update in group zero.
+	AmDead  bool   // Set to true if the node is dead
 }
 
 type servers struct {
@@ -222,6 +223,21 @@ func (g *groupi) nodes() (nodes []*node) {
 	return
 }
 
+func (g *groupi) isDead(gid uint32, nid uint64, addr string) bool {
+	g.RLock()
+	defer g.RUnlock()
+	sl := g.all[gid]
+	if sl == nil {
+		return false
+	}
+	for _, s := range sl.list {
+		if s.NodeId == nid && s.AmDead == true && s.Addr == addr {
+			return true
+		}
+	}
+	return false
+}
+
 func (g *groupi) isDuplicate(gid uint32, nid uint64, addr string, leader bool) bool {
 	g.RLock()
 	defer g.RUnlock()
@@ -376,6 +392,86 @@ func (g *groupi) periodicSyncMemberships() {
 	}
 }
 
+// - If serving group zero, propose membership removal updates directly via RAFT.
+// - Otherwise, generates a membership update
+// - Check if it has address of a server from group zero other than the server
+//    we are removing. If so, use that Otherwise, use the peer information passed down via flags.
+// - Send update via RemoveMembership call to the peer.
+// - If the peer doesn't serve group zero, it would return back a redirect with the right address.
+// - Otherwise, it would iterate over the memberships and marks the server deleted
+func (g *groupi) removeNode(groupId uint32, nodeId uint64, addr string) {
+	if g.ServesGroup(0) {
+		// This server serves group zero.
+		// prevents duplicate proposals
+		if g.isDead(groupId, nodeId, addr) {
+			return
+		}
+
+		go func(groupId uint32, nodeId uint64, addr string) {
+			mm := &task.Membership{
+				Id:      nodeId,
+				GroupId: groupId,
+				Addr:    addr,
+				AmDead:  true,
+			}
+			zero := g.Node(0)
+			x.AssertTruef(zero != nil, "Expected node 0")
+			if err := zero.ProposeAndWait(zero.ctx, &task.Proposal{Membership: mm}); err != nil {
+				x.TraceError(g.ctx, err)
+			}
+		}(groupId, nodeId, addr)
+		return
+	}
+
+	// This server doesn't serve group zero.
+	mm := &task.Membership{
+		Id:      nodeId,
+		GroupId: groupId,
+		Addr:    addr,
+		AmDead:  true,
+	}
+
+	// Send an update to peer.
+	var pl *pool
+	zeroAddr := g.AnyServer(0)
+	for zeroAddr == addr {
+		zeroAddr = g.AnyServer(0)
+	}
+
+REMOVEMEMBERSHIP:
+	if len(zeroAddr) > 0 && zeroAddr != addr {
+		pl = pools().get(zeroAddr)
+	} else {
+		pl = pools().anyExclude(zeroAddr)
+	}
+	conn, err := pl.Get()
+	if err == errNoConnection {
+		fmt.Println("Unable to sync memberships. No valid connection")
+		return
+	}
+	x.Check(err)
+	defer pl.Put(conn)
+
+	c := NewWorkerClient(conn)
+	update, err := c.RemoveMembership(g.ctx, mm)
+	if err != nil {
+		x.TraceError(g.ctx, err)
+		return
+	}
+
+	// Check if we got a redirect.
+	if update.Redirect {
+		zeroAddr = update.RedirectAddr
+		if len(zeroAddr) == 0 {
+			return
+		}
+		fmt.Printf("Got redirect for: %q\n", addr)
+		pools().connect(zeroAddr)
+		goto REMOVEMEMBERSHIP
+	}
+
+}
+
 // raftIdx is the RAFT index corresponding to the application of this
 // membership update in group zero.
 func (g *groupi) applyMembershipUpdate(raftIdx uint64, mm *task.Membership) {
@@ -384,6 +480,7 @@ func (g *groupi) applyMembershipUpdate(raftIdx uint64, mm *task.Membership) {
 		Addr:    mm.Addr,
 		Leader:  mm.Leader,
 		RaftIdx: raftIdx,
+		AmDead:  mm.AmDead,
 	}
 	if update.Addr != *myAddr {
 		go pools().connect(update.Addr)
@@ -461,12 +558,44 @@ func (g *groupi) MembershipUpdateAfter(ridx uint64) *task.MembershipUpdate {
 					Id:      s.NodeId,
 					GroupId: gid,
 					Addr:    s.Addr,
+					AmDead:  s.AmDead,
 				})
 		}
 	}
 
 	out.LastUpdate = maxIdx
 	return out
+}
+
+// UpdateMembership is the RPC call for removing membership for servers
+// which don't serve group zero.
+func (w *grpcWorker) RemoveMembership(ctx context.Context,
+	mm *task.Membership) (*task.MembershipUpdate, error) {
+	if ctx.Err() != nil {
+		return &task.MembershipUpdate{}, ctx.Err()
+	}
+	if !groups().ServesGroup(0) {
+		addr := groups().AnyServer(0)
+		for addr == mm.Addr {
+			addr = groups().AnyServer(0)
+		}
+		return &task.MembershipUpdate{RedirectAddr: addr}, nil
+	}
+
+	if groups().isDead(mm.GroupId, mm.Id, mm.Addr) {
+		return &task.MembershipUpdate{}, nil
+	}
+
+	go func(mmNew *task.Membership) {
+		zero := groups().Node(0)
+		x.AssertTruef(zero != nil, "Expected node 0")
+		if err := zero.ProposeAndWait(zero.ctx, &task.Proposal{Membership: mm}); err != nil {
+			x.TraceError(groups().ctx, err)
+		}
+	}(mm)
+
+	return &task.MembershipUpdate{}, nil
+
 }
 
 // UpdateMembership is the RPC call for updating membership for servers

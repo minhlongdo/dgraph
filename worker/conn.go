@@ -40,6 +40,17 @@ func pools() *poolsi {
 	return pi
 }
 
+func (p *poolsi) anyExclude(addr string) *pool {
+	p.RLock()
+	defer p.RUnlock()
+	for _, pool := range p.all {
+		if pool.Addr != addr {
+			return pool
+		}
+	}
+	return nil
+}
+
 func (p *poolsi) any() *pool {
 	p.RLock()
 	defer p.RUnlock()
