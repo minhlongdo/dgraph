@@ -40,7 +40,7 @@ import (
 func ToProtocolBuf(l *Latency, sgl []*SubGraph) ([]*graph.Node, error) {
 	var resNode []*graph.Node
 	for _, sg := range sgl {
-		if sg.Params.Alias == "var" || sg.Params.Alias == "shortest" {
+		if sg.params.Alias == "var" || sg.params.Alias == "shortest" {
 			continue
 		}
 		node, err := sg.ToProtocolBuffer(l)
@@ -58,11 +58,11 @@ func ToJson(l *Latency, sgl []*SubGraph, w io.Writer, allocIds map[string]string
 		Attr: "__",
 	}
 	for _, sg := range sgl {
-		if sg.Params.Alias == "var" || sg.Params.Alias == "shortest" {
+		if sg.params.Alias == "var" || sg.params.Alias == "shortest" {
 			continue
 		}
-		if sg.Params.isDebug {
-			sgr.Params.isDebug = true
+		if sg.params.isDebug {
+			sgr.params.isDebug = true
 		}
 		sgr.Children = append(sgr.Children, sg)
 	}
@@ -179,7 +179,7 @@ func (n *protoNode) normalize(props []*graph.Property, out []protoNode) []protoN
 func (sg *SubGraph) ToProtocolBuffer(l *Latency) (*graph.Node, error) {
 	var seedNode *protoNode
 	if sg.uidMatrix == nil {
-		return seedNode.New(sg.Params.Alias).(*protoNode).Node, nil
+		return seedNode.New(sg.params.Alias).(*protoNode).Node, nil
 	}
 
 	n := seedNode.New("_root_")
@@ -187,8 +187,8 @@ func (sg *SubGraph) ToProtocolBuffer(l *Latency) (*graph.Node, error) {
 	for ; it.Valid(); it.Next() {
 		uid := it.Val()
 		// For the root, the name is stored in Alias, not Attr.
-		n1 := seedNode.New(sg.Params.Alias)
-		if sg.Params.GetUID || sg.Params.isDebug {
+		n1 := seedNode.New(sg.params.Alias)
+		if sg.params.GetUID || sg.params.isDebug {
 			n1.SetUID(uid)
 		}
 
@@ -201,8 +201,8 @@ func (sg *SubGraph) ToProtocolBuffer(l *Latency) (*graph.Node, error) {
 		if n1.IsEmpty() {
 			continue
 		}
-		if !sg.Params.Normalize {
-			n.AddListChild(sg.Params.Alias, n1)
+		if !sg.params.Normalize {
+			n.AddListChild(sg.params.Alias, n1)
 			continue
 		}
 
@@ -210,7 +210,7 @@ func (sg *SubGraph) ToProtocolBuffer(l *Latency) (*graph.Node, error) {
 		normalized := make([]protoNode, 0, 10)
 		props := make([]*graph.Property, 0, 10)
 		for _, c := range (n1.(*protoNode)).normalize(props, normalized) {
-			n.AddListChild(sg.Params.Alias, &c)
+			n.AddListChild(sg.params.Alias, &c)
 		}
 	}
 	l.ProtocolBuffer = time.Since(l.Start) - l.Parsing - l.Processing
@@ -418,8 +418,8 @@ func processNodeUids(n *fastJsonNode, sg *SubGraph) error {
 	it := algo.NewListIterator(sg.uidMatrix[0])
 	for ; it.Valid(); it.Next() {
 		uid := it.Val()
-		n1 := seedNode.New(sg.Params.Alias)
-		if sg.Params.GetUID || sg.Params.isDebug {
+		n1 := seedNode.New(sg.params.Alias)
+		if sg.params.GetUID || sg.params.isDebug {
 			n1.SetUID(uid)
 		}
 		if err := sg.preTraverse(uid, n1, n1); err != nil {
@@ -432,8 +432,8 @@ func processNodeUids(n *fastJsonNode, sg *SubGraph) error {
 			continue
 		}
 
-		if !sg.Params.Normalize {
-			n.AddListChild(sg.Params.Alias, n1)
+		if !sg.params.Normalize {
+			n.AddListChild(sg.params.Alias, n1)
 			continue
 		}
 
@@ -444,7 +444,7 @@ func processNodeUids(n *fastJsonNode, sg *SubGraph) error {
 		// the Subgraph.
 		av := make([]attrVal, 0, 10)
 		for _, c := range (n1.(*fastJsonNode)).normalize(av, normalized) {
-			n.AddListChild(sg.Params.Alias, &fastJsonNode{attrs: c.attrs})
+			n.AddListChild(sg.params.Alias, &fastJsonNode{attrs: c.attrs})
 		}
 	}
 	return nil
@@ -467,7 +467,7 @@ func (sg *SubGraph) ToFastJSON(l *Latency, w io.Writer, allocIds map[string]stri
 		}
 	}
 
-	if sg.Params.isDebug {
+	if sg.params.isDebug {
 		sl := seedNode.New("serverLatency").(*fastJsonNode)
 		for k, v := range l.ToMap() {
 			val := types.ValueForType(types.BinaryID)

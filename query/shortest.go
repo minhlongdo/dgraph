@@ -56,7 +56,7 @@ type nodeInfo struct {
 
 func (sg *SubGraph) getCost(matrix, list int) (float64, error) {
 	cost := 1.0
-	if sg.Params.Facet == nil {
+	if sg.params.Facet == nil {
 		return cost, nil
 	}
 	fcsList := sg.facetsMatrix[matrix].FacetsList
@@ -89,14 +89,14 @@ func (start *SubGraph) expandOut(ctx context.Context,
 	var err error
 	var in task.List
 	it := algo.NewWriteIterator(&in, 0)
-	it.Append(start.Params.From)
+	it.Append(start.params.From)
 	it.End()
-	start.SrcUIDs = &in
+	start.srcUIDs = &in
 	start.uidMatrix = []*task.List{&in}
-	start.DestUIDs = start.SrcUIDs
+	start.destUIDs = start.srcUIDs
 
 	for _, child := range start.Children {
-		child.SrcUIDs = start.DestUIDs
+		child.srcUIDs = start.destUIDs
 		exec = append(exec, child)
 	}
 	dummy := &SubGraph{}
@@ -127,7 +127,7 @@ func (start *SubGraph) expandOut(ctx context.Context,
 
 		for _, sg := range exec {
 			// Send the destuids in res chan.
-			it := algo.NewListIterator(sg.SrcUIDs)
+			it := algo.NewListIterator(sg.srcUIDs)
 			mIdx := -1
 			for ; it.Valid(); it.Next() { // idx, fromUID := range sg.SrcUIDs.Uids {
 				mIdx++
@@ -163,7 +163,7 @@ func (start *SubGraph) expandOut(ctx context.Context,
 		// modify the exec and attach child nodes.
 		var out []*SubGraph
 		for _, sg := range exec {
-			if algo.ListLen(sg.DestUIDs) == 0 {
+			if algo.ListLen(sg.destUIDs) == 0 {
 				continue
 			}
 			for _, child := range start.Children {
@@ -171,14 +171,14 @@ func (start *SubGraph) expandOut(ctx context.Context,
 				*temp = *child
 				// Filter out the uids that we have already seen
 				temp.Children = []*SubGraph{}
-				temp.SrcUIDs = sg.DestUIDs
+				temp.srcUIDs = sg.destUIDs
 				// Remove those nodes which we have already traversed. As this cannot be
 				// in the path again.
-				algo.ApplyFilter(temp.SrcUIDs, func(uid uint64, i int) bool {
+				algo.ApplyFilter(temp.srcUIDs, func(uid uint64, i int) bool {
 					_, ok := adjacencyMap[uid]
 					return !ok
 				})
-				if algo.ListLen(temp.SrcUIDs) == 0 {
+				if algo.ListLen(temp.srcUIDs) == 0 {
 					continue
 				}
 				sg.Children = append(sg.Children, temp)
@@ -223,7 +223,7 @@ func (start *SubGraph) expandOut(ctx context.Context,
 
 func ShortestPath(ctx context.Context, sg *SubGraph) error {
 	var err error
-	if sg.Params.Alias != "shortest" {
+	if sg.params.Alias != "shortest" {
 		return x.Errorf("Invalid shortest path query")
 	}
 
@@ -232,7 +232,7 @@ func ShortestPath(ctx context.Context, sg *SubGraph) error {
 
 	// Initialize and push the source node.
 	srcNode := &Item{
-		uid:  sg.Params.From,
+		uid:  sg.params.From,
 		cost: 0,
 		hop:  0,
 	}
@@ -255,7 +255,7 @@ func ShortestPath(ctx context.Context, sg *SubGraph) error {
 	var stopExpansion bool
 	for pq.Len() > 0 {
 		item := heap.Pop(&pq).(*Item)
-		if item.uid == sg.Params.To {
+		if item.uid == sg.params.To {
 			break
 		}
 		if item.hop > numHops {
@@ -324,13 +324,13 @@ func ShortestPath(ctx context.Context, sg *SubGraph) error {
 
 	// Go through the distance map to find the path.
 	var result []uint64
-	cur := sg.Params.To
-	for i := 0; cur != sg.Params.From && i < len(dist); i++ {
+	cur := sg.params.To
+	for i := 0; cur != sg.params.From && i < len(dist); i++ {
 		result = append(result, cur)
 		cur = dist[cur].parent
 	}
 	// Put the path in DestUIDs of the root.
-	if cur == sg.Params.From {
+	if cur == sg.params.From {
 		result = append(result, cur)
 		l := len(result)
 		// Reverse the list.
@@ -343,9 +343,9 @@ func ShortestPath(ctx context.Context, sg *SubGraph) error {
 			out.Append(result[i])
 		}
 		out.End()
-		sg.DestUIDs = &r
+		sg.destUIDs = &r
 	} else {
-		sg.DestUIDs = &task.List{}
+		sg.destUIDs = &task.List{}
 	}
 	next <- true
 	return nil
