@@ -2317,7 +2317,7 @@ func ageSg(uidMatrix []*task.List, srcUids *task.List, ages []uint32) *SubGraph 
 		uidMatrix: uidMatrix,
 		srcUIDs:   srcUids,
 		values:    as,
-		params:    params{isDebug: false, GetUID: true},
+		params:    params{isDebug: false, getUID: true},
 	}
 }
 func nameSg(uidMatrix []*task.List, srcUids *task.List, names []string) *SubGraph {
@@ -2330,7 +2330,7 @@ func nameSg(uidMatrix []*task.List, srcUids *task.List, names []string) *SubGrap
 		uidMatrix: uidMatrix,
 		srcUIDs:   srcUids,
 		values:    ns,
-		params:    params{isDebug: false, GetUID: true},
+		params:    params{isDebug: false, getUID: true},
 	}
 
 }
@@ -2339,7 +2339,7 @@ func friendsSg(uidMatrix []*task.List, srcUids *task.List, friends []*SubGraph) 
 		Attr:      "friend",
 		uidMatrix: uidMatrix,
 		srcUIDs:   srcUids,
-		params:    params{isDebug: false, GetUID: true},
+		params:    params{isDebug: false, getUID: true},
 		Children:  friends,
 	}
 }
@@ -2349,7 +2349,7 @@ func rootSg(uidMatrix []*task.List, srcUids *task.List, names []string, ages []u
 
 	return &SubGraph{
 		Children:  []*SubGraph{nameSg, ageSg},
-		params:    params{isDebug: false, GetUID: true},
+		params:    params{isDebug: false, getUID: true},
 		srcUIDs:   srcUids,
 		uidMatrix: uidMatrix,
 	}

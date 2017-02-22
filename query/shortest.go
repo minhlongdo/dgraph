@@ -56,7 +56,7 @@ type nodeInfo struct {
 
 func (sg *SubGraph) getCost(matrix, list int) (float64, error) {
 	cost := 1.0
-	if sg.params.Facet == nil {
+	if sg.params.facet == nil {
 		return cost, nil
 	}
 	fcsList := sg.facetsMatrix[matrix].FacetsList
@@ -89,7 +89,7 @@ func (start *SubGraph) expandOut(ctx context.Context,
 	var err error
 	var in task.List
 	it := algo.NewWriteIterator(&in, 0)
-	it.Append(start.params.From)
+	it.Append(start.params.from)
 	it.End()
 	start.srcUIDs = &in
 	start.uidMatrix = []*task.List{&in}
@@ -223,7 +223,7 @@ func (start *SubGraph) expandOut(ctx context.Context,
 
 func ShortestPath(ctx context.Context, sg *SubGraph) error {
 	var err error
-	if sg.params.Alias != "shortest" {
+	if sg.params.alias != "shortest" {
 		return x.Errorf("Invalid shortest path query")
 	}
 
@@ -232,7 +232,7 @@ func ShortestPath(ctx context.Context, sg *SubGraph) error {
 
 	// Initialize and push the source node.
 	srcNode := &Item{
-		uid:  sg.params.From,
+		uid:  sg.params.from,
 		cost: 0,
 		hop:  0,
 	}
@@ -255,7 +255,7 @@ func ShortestPath(ctx context.Context, sg *SubGraph) error {
 	var stopExpansion bool
 	for pq.Len() > 0 {
 		item := heap.Pop(&pq).(*Item)
-		if item.uid == sg.params.To {
+		if item.uid == sg.params.to {
 			break
 		}
 		if item.hop > numHops {
@@ -324,13 +324,13 @@ func ShortestPath(ctx context.Context, sg *SubGraph) error {
 
 	// Go through the distance map to find the path.
 	var result []uint64
-	cur := sg.params.To
-	for i := 0; cur != sg.params.From && i < len(dist); i++ {
+	cur := sg.params.to
+	for i := 0; cur != sg.params.from && i < len(dist); i++ {
 		result = append(result, cur)
 		cur = dist[cur].parent
 	}
 	// Put the path in DestUIDs of the root.
-	if cur == sg.params.From {
+	if cur == sg.params.from {
 		result = append(result, cur)
 		l := len(result)
 		// Reverse the list.
